@@ -1,530 +1,482 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Project Gantt Chart</title>
+    <title>My Gantt Chart</title>
     <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    <script src="https://unpkg.com/lucide-react@latest/dist/umd/lucide-react.js"></script>
-    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
-    <style>
-        /* Mobile-first responsive adjustments */
-        @media (max-width: 768px) {
-            .task-info { min-width: 250px; }
-            .timeline-header { font-size: 0.75rem; }
-            .task-bar { min-height: 32px; }
-        }
-        
-        /* PWA Styles */
-        body { 
-            margin: 0; 
-            padding: 0; 
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-            -webkit-user-select: none;
-            -webkit-touch-callout: none;
-        }
-        
-        /* Touch-friendly buttons */
-        button, input, select {
-            min-height: 44px;
-            touch-action: manipulation;
-        }
-        
-        /* Horizontal scroll for mobile */
-        .gantt-container {
-            overflow-x: auto;
-            -webkit-overflow-scrolling: touch;
-        }
-    </style>
+    <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body>
     <div id="root"></div>
-
     <script type="text/babel">
-        const { useState } = React;
-        const { Calendar, User, Clock, Plus, Edit3, Trash2, CheckCircle, Menu } = lucideReact;
-
-        const GanttChart = () => {
-            const [tasks, setTasks] = useState([
-                {
-                    id: 1,
-                    name: "Project Planning",
-                    assignee: "Project Manager",
-                    startDate: "2025-08-12",
-                    endDate: "2025-08-16",
-                    progress: 100,
-                    status: "completed",
-                    dependencies: []
-                },
-                {
-                    id: 2,
-                    name: "Requirements Gathering",
-                    assignee: "Business Analyst",
-                    startDate: "2025-08-14",
-                    endDate: "2025-08-23",
-                    progress: 75,
-                    status: "in-progress",
-                    dependencies: [1]
-                },
-                {
-                    id: 3,
-                    name: "System Design",
-                    assignee: "Lead Developer",
-                    startDate: "2025-08-20",
-                    endDate: "2025-09-06",
-                    progress: 30,
-                    status: "in-progress",
-                    dependencies: [2]
-                },
-                {
-                    id: 4,
-                    name: "Frontend Development",
-                    assignee: "Frontend Team",
-                    startDate: "2025-08-30",
-                    endDate: "2025-09-27",
-                    progress: 0,
-                    status: "not-started",
-                    dependencies: [3]
-                },
-                {
-                    id: 5,
-                    name: "Backend Development",
-                    assignee: "Backend Team",
-                    startDate: "2025-09-02",
-                    endDate: "2025-10-04",
-                    progress: 0,
-                    status: "not-started",
-                    dependencies: [3]
-                },
-                {
-                    id: 6,
-                    name: "Testing & QA",
-                    assignee: "QA Team",
-                    startDate: "2025-09-20",
-                    endDate: "2025-10-11",
-                    progress: 0,
-                    status: "not-started",
-                    dependencies: [4, 5]
-                },
-                {
-                    id: 7,
-                    name: "Deployment",
-                    assignee: "DevOps Team",
-                    startDate: "2025-10-07",
-                    endDate: "2025-10-14",
-                    progress: 0,
-                    status: "not-started",
-                    dependencies: [6]
-                }
-            ]);
-
-            const [editingTask, setEditingTask] = useState(null);
-            const [newTask, setNewTask] = useState({
-                name: '',
-                assignee: '',
-                startDate: '',
-                endDate: '',
-                progress: 0,
-                status: 'not-started'
-            });
-            const [showAddForm, setShowAddForm] = useState(false);
-            const [isMobileView, setIsMobileView] = useState(window.innerWidth < 768);
-
-            React.useEffect(() => {
-                const handleResize = () => setIsMobileView(window.innerWidth < 768);
-                window.addEventListener('resize', handleResize);
-                return () => window.removeEventListener('resize', handleResize);
-            }, []);
-
-            // Generate date range for timeline
-            const generateDateRange = () => {
-                const startDate = new Date('2025-08-12');
-                const endDate = new Date('2025-10-14');
-                const dates = [];
-                const current = new Date(startDate);
-                
-                while (current <= endDate) {
-                    dates.push(new Date(current));
-                    current.setDate(current.getDate() + 1);
-                }
-                return dates;
-            };
-
-            const dateRange = generateDateRange();
-            const totalDays = dateRange.length;
-
-            // Calculate task position and width
-            const getTaskPosition = (task) => {
-                const startDate = new Date(task.startDate);
-                const endDate = new Date(task.endDate);
-                const timelineStart = new Date('2025-08-12');
-                
-                const startDay = Math.floor((startDate - timelineStart) / (1000 * 60 * 60 * 24));
-                const duration = Math.floor((endDate - startDate) / (1000 * 60 * 60 * 24)) + 1;
-                
-                return {
-                    left: (startDay / totalDays) * 100,
-                    width: (duration / totalDays) * 100
-                };
-            };
-
-            const getStatusColor = (status) => {
-                switch (status) {
-                    case 'completed': return 'bg-green-500';
-                    case 'in-progress': return 'bg-blue-500';
-                    case 'not-started': return 'bg-gray-400';
-                    case 'delayed': return 'bg-red-500';
-                    default: return 'bg-gray-400';
-                }
-            };
-
-            const addTask = () => {
-                if (newTask.name && newTask.startDate && newTask.endDate) {
-                    setTasks([...tasks, {
-                        ...newTask,
-                        id: Math.max(...tasks.map(t => t.id)) + 1,
-                        dependencies: []
-                    }]);
-                    setNewTask({
-                        name: '',
-                        assignee: '',
-                        startDate: '',
-                        endDate: '',
-                        progress: 0,
-                        status: 'not-started'
-                    });
-                    setShowAddForm(false);
-                }
-            };
-
-            const updateTask = (taskId, updates) => {
-                setTasks(tasks.map(task => 
-                    task.id === taskId ? { ...task, ...updates } : task
-                ));
-            };
-
-            const deleteTask = (taskId) => {
-                setTasks(tasks.filter(task => task.id !== taskId));
-            };
-
-            const formatDate = (date) => {
-                return new Date(date).toLocaleDateString('en-US', { 
-                    month: 'short', 
-                    day: 'numeric' 
-                });
-            };
-
-            return (
-                <div className={`${isMobileView ? 'p-4' : 'p-6'} bg-white min-h-screen`}>
-                    <div className="mb-6">
-                        <h1 className={`${isMobileView ? 'text-2xl' : 'text-3xl'} font-bold text-gray-800 mb-2`}>
-                            Project Gantt Chart
-                        </h1>
-                        <div className={`flex ${isMobileView ? 'flex-col gap-2' : 'items-center gap-4'} text-sm text-gray-600`}>
-                            <div className="flex items-center gap-2">
-                                <Calendar className="w-4 h-4" />
-                                <span>Aug 12, 2025 - Oct 14, 2025</span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                                <Clock className="w-4 h-4" />
-                                <span>{tasks.length} Tasks</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Legend */}
-                    <div className={`mb-4 flex ${isMobileView ? 'flex-wrap' : ''} gap-4 text-sm`}>
-                        <div className="flex items-center gap-2">
-                            <div className="w-3 h-3 bg-green-500 rounded"></div>
-                            <span>Completed</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                            <div className="w-3 h-3 bg-blue-500 rounded"></div>
-                            <span>In Progress</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                            <div className="w-3 h-3 bg-gray-400 rounded"></div>
-                            <span>Not Started</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                            <div className="w-3 h-3 bg-red-500 rounded"></div>
-                            <span>Delayed</span>
-                        </div>
-                    </div>
-
-                    {/* Add Task Button */}
-                    <button
-                        onClick={() => setShowAddForm(!showAddForm)}
-                        className="mb-4 flex items-center gap-2 px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors w-full sm:w-auto justify-center sm:justify-start"
-                    >
-                        <Plus className="w-4 h-4" />
-                        Add Task
-                    </button>
-
-                    {/* Add Task Form */}
-                    {showAddForm && (
-                        <div className="mb-6 p-4 border rounded-lg bg-gray-50">
-                            <h3 className="text-lg font-semibold mb-3">Add New Task</h3>
-                            <div className={`grid ${isMobileView ? 'grid-cols-1' : 'grid-cols-2'} gap-4 mb-4`}>
-                                <input
-                                    type="text"
-                                    placeholder="Task name"
-                                    className="px-3 py-3 border rounded-lg"
-                                    value={newTask.name}
-                                    onChange={(e) => setNewTask({...newTask, name: e.target.value})}
-                                />
-                                <input
-                                    type="text"
-                                    placeholder="Assignee"
-                                    className="px-3 py-3 border rounded-lg"
-                                    value={newTask.assignee}
-                                    onChange={(e) => setNewTask({...newTask, assignee: e.target.value})}
-                                />
-                                <input
-                                    type="date"
-                                    className="px-3 py-3 border rounded-lg"
-                                    value={newTask.startDate}
-                                    onChange={(e) => setNewTask({...newTask, startDate: e.target.value})}
-                                />
-                                <input
-                                    type="date"
-                                    className="px-3 py-3 border rounded-lg"
-                                    value={newTask.endDate}
-                                    onChange={(e) => setNewTask({...newTask, endDate: e.target.value})}
-                                />
-                            </div>
-                            <div className={`flex ${isMobileView ? 'flex-col' : ''} gap-2`}>
-                                <button
-                                    onClick={addTask}
-                                    className="px-4 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-                                >
-                                    Add Task
-                                </button>
-                                <button
-                                    onClick={() => setShowAddForm(false)}
-                                    className="px-4 py-3 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors"
-                                >
-                                    Cancel
-                                </button>
-                            </div>
-                        </div>
-                    )}
-
-                    {/* Edit Task Form */}
-                    {editingTask && (
-                        <div className="mb-6 p-4 border rounded-lg bg-yellow-50">
-                            <h3 className="text-lg font-semibold mb-3">Edit Task</h3>
-                            {(() => {
-                                const task = tasks.find(t => t.id === editingTask);
-                                return (
-                                    <div>
-                                        <div className={`grid ${isMobileView ? 'grid-cols-1' : 'grid-cols-2'} gap-4 mb-4`}>
-                                            <input
-                                                type="text"
-                                                placeholder="Task name"
-                                                className="px-3 py-3 border rounded-lg"
-                                                value={task?.name || ''}
-                                                onChange={(e) => updateTask(editingTask, { name: e.target.value })}
-                                            />
-                                            <input
-                                                type="text"
-                                                placeholder="Assignee"
-                                                className="px-3 py-3 border rounded-lg"
-                                                value={task?.assignee || ''}
-                                                onChange={(e) => updateTask(editingTask, { assignee: e.target.value })}
-                                            />
-                                            <input
-                                                type="date"
-                                                className="px-3 py-3 border rounded-lg"
-                                                value={task?.startDate || ''}
-                                                onChange={(e) => updateTask(editingTask, { startDate: e.target.value })}
-                                            />
-                                            <input
-                                                type="date"
-                                                className="px-3 py-3 border rounded-lg"
-                                                value={task?.endDate || ''}
-                                                onChange={(e) => updateTask(editingTask, { endDate: e.target.value })}
-                                            />
-                                        </div>
-                                        <div className={`grid ${isMobileView ? 'grid-cols-1' : 'grid-cols-2'} gap-4 mb-4`}>
-                                            <div>
-                                                <label className="block text-sm font-medium text-gray-700 mb-1">Progress (%)</label>
-                                                <input
-                                                    type="range"
-                                                    min="0"
-                                                    max="100"
-                                                    className="w-full h-8"
-                                                    value={task?.progress || 0}
-                                                    onChange={(e) => updateTask(editingTask, { progress: parseInt(e.target.value) })}
-                                                />
-                                                <span className="text-sm text-gray-600">{task?.progress || 0}%</span>
-                                            </div>
-                                            <div>
-                                                <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
-                                                <select
-                                                    className="w-full px-3 py-3 border rounded-lg"
-                                                    value={task?.status || 'not-started'}
-                                                    onChange={(e) => updateTask(editingTask, { status: e.target.value })}
-                                                >
-                                                    <option value="not-started">Not Started</option>
-                                                    <option value="in-progress">In Progress</option>
-                                                    <option value="completed">Completed</option>
-                                                    <option value="delayed">Delayed</option>
-                                                </select>
-                                            </div>
-                                        </div>
-                                        <div className={`flex ${isMobileView ? 'flex-col' : ''} gap-2`}>
-                                            <button
-                                                onClick={() => setEditingTask(null)}
-                                                className="px-4 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-                                            >
-                                                Save Changes
-                                            </button>
-                                            <button
-                                                onClick={() => setEditingTask(null)}
-                                                className="px-4 py-3 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors"
-                                            >
-                                                Cancel
-                                            </button>
-                                        </div>
-                                    </div>
-                                );
-                            })()}
-                        </div>
-                    )}
-
-                    {/* Gantt Chart */}
-                    <div className="border rounded-lg overflow-hidden gantt-container">
-                        {/* Timeline Header */}
-                        <div className="flex bg-gray-100 border-b">
-                            <div className={`${isMobileView ? 'w-64' : 'w-80'} task-info p-4 border-r bg-gray-50`}>
-                                <span className="font-semibold text-gray-700">Tasks</span>
-                            </div>
-                            <div className="flex-1 relative" style={{minWidth: '600px'}}>
-                                <div className="flex">
-                                    {dateRange.filter((_, index) => index % (isMobileView ? 14 : 7) === 0).map((date, index) => (
-                                        <div
-                                            key={index}
-                                            className="flex-1 p-2 text-center text-sm font-medium text-gray-600 border-r timeline-header"
-                                        >
-                                            {formatDate(date)}
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Tasks */}
-                        {tasks.map((task, index) => {
-                            const position = getTaskPosition(task);
-                            return (
-                                <div key={task.id} className={`flex ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
-                                    {/* Task Info */}
-                                    <div className={`${isMobileView ? 'w-64' : 'w-80'} task-info p-4 border-r`}>
-                                        <div className="flex items-center justify-between">
-                                            <div className="flex-1 min-w-0">
-                                                <h4 className="font-medium text-gray-800 truncate">{task.name}</h4>
-                                                <div className="flex items-center gap-2 mt-1">
-                                                    <User className="w-3 h-3 text-gray-500 flex-shrink-0" />
-                                                    <span className="text-sm text-gray-600 truncate">{task.assignee}</span>
-                                                </div>
-                                                <div className="text-xs text-gray-500 mt-1">
-                                                    {formatDate(task.startDate)} - {formatDate(task.endDate)}
-                                                </div>
-                                            </div>
-                                            <div className="flex gap-1 ml-2">
-                                                <button
-                                                    onClick={() => setEditingTask(task.id)}
-                                                    className="p-2 text-gray-400 hover:text-blue-600 transition-colors"
-                                                >
-                                                    <Edit3 className="w-4 h-4" />
-                                                </button>
-                                                <button
-                                                    onClick={() => deleteTask(task.id)}
-                                                    className="p-2 text-gray-400 hover:text-red-600 transition-colors"
-                                                >
-                                                    <Trash2 className="w-4 h-4" />
-                                                </button>
-                                            </div>
-                                        </div>
-                                        <div className="mt-2">
-                                            <div className="flex items-center gap-2">
-                                                <div className="flex-1 bg-gray-200 rounded-full h-2">
-                                                    <div
-                                                        className="bg-blue-600 h-2 rounded-full transition-all duration-300"
-                                                        style={{ width: `${task.progress}%` }}
-                                                    ></div>
-                                                </div>
-                                                <span className="text-xs text-gray-600">{task.progress}%</span>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    
-                                    {/* Timeline Bar */}
-                                    <div className="flex-1 relative p-4" style={{minWidth: '600px'}}>
-                                        <div className="relative h-8 task-bar">
-                                            <div
-                                                className={`absolute h-6 rounded-lg ${getStatusColor(task.status)} opacity-80 hover:opacity-100 transition-opacity cursor-pointer`}
-                                                style={{
-                                                    left: `${position.left}%`,
-                                                    width: `${position.width}%`,
-                                                    top: '4px'
-                                                }}
-                                                title={`${task.name}: ${task.progress}% complete`}
-                                            >
-                                                <div className="flex items-center h-full px-2">
-                                                    {task.status === 'completed' && (
-                                                        <CheckCircle className="w-3 h-3 text-white" />
-                                                    )}
-                                                </div>
-                                                {/* Progress overlay */}
-                                                <div
-                                                    className="absolute top-0 left-0 h-full bg-black bg-opacity-20 rounded-lg"
-                                                    style={{ width: `${task.progress}%` }}
-                                                ></div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            );
-                        })}
-                    </div>
-
-                    {/* Project Summary */}
-                    <div className="mt-6 p-4 bg-blue-50 rounded-lg">
-                        <h3 className="font-semibold text-blue-800 mb-2">Project Summary</h3>
-                        <div className={`grid ${isMobileView ? 'grid-cols-2' : 'grid-cols-4'} gap-4 text-sm`}>
-                            <div>
-                                <span className="text-blue-600 font-medium">Total Tasks:</span>
-                                <div className="text-lg font-bold text-blue-800">{tasks.length}</div>
-                            </div>
-                            <div>
-                                <span className="text-green-600 font-medium">Completed:</span>
-                                <div className="text-lg font-bold text-green-700">
-                                    {tasks.filter(t => t.status === 'completed').length}
-                                </div>
-                            </div>
-                            <div>
-                                <span className="text-blue-600 font-medium">In Progress:</span>
-                                <div className="text-lg font-bold text-blue-700">
-                                    {tasks.filter(t => t.status === 'in-progress').length}
-                                </div>
-                            </div>
-                            <div>
-                                <span className="text-gray-600 font-medium">Not Started:</span>
-                                <div className="text-lg font-bold text-gray-700">
-                                    {tasks.filter(t => t.status === 'not-started').length}
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            );
-        };
-
-        ReactDOM.render(<GanttChart />, document.getElementById('root'));
+        // Paste the React component code here
     </script>
 </body>
 </html>
+
+import React, { useState } from 'react';
+import { Calendar, User, Clock, Plus, Edit3, Trash2, CheckCircle } from 'lucide-react';
+
+const GanttChart = () => {
+  const [tasks, setTasks] = useState([
+    {
+      id: 1,
+      name: "Project Planning",
+      assignee: "Project Manager",
+      startDate: "2025-08-12",
+      endDate: "2025-08-16",
+      progress: 100,
+      status: "completed",
+      dependencies: []
+    },
+    {
+      id: 2,
+      name: "Requirements Gathering",
+      assignee: "Business Analyst",
+      startDate: "2025-08-14",
+      endDate: "2025-08-23",
+      progress: 75,
+      status: "in-progress",
+      dependencies: [1]
+    },
+    {
+      id: 3,
+      name: "System Design",
+      assignee: "Lead Developer",
+      startDate: "2025-08-20",
+      endDate: "2025-09-06",
+      progress: 30,
+      status: "in-progress",
+      dependencies: [2]
+    },
+    {
+      id: 4,
+      name: "Frontend Development",
+      assignee: "Frontend Team",
+      startDate: "2025-08-30",
+      endDate: "2025-09-27",
+      progress: 0,
+      status: "not-started",
+      dependencies: [3]
+    },
+    {
+      id: 5,
+      name: "Backend Development",
+      assignee: "Backend Team",
+      startDate: "2025-09-02",
+      endDate: "2025-10-04",
+      progress: 0,
+      status: "not-started",
+      dependencies: [3]
+    },
+    {
+      id: 6,
+      name: "Testing & QA",
+      assignee: "QA Team",
+      startDate: "2025-09-20",
+      endDate: "2025-10-11",
+      progress: 0,
+      status: "not-started",
+      dependencies: [4, 5]
+    },
+    {
+      id: 7,
+      name: "Deployment",
+      assignee: "DevOps Team",
+      startDate: "2025-10-07",
+      endDate: "2025-10-14",
+      progress: 0,
+      status: "not-started",
+      dependencies: [6]
+    }
+  ]);
+
+  const [editingTask, setEditingTask] = useState(null);
+  const [newTask, setNewTask] = useState({
+    name: '',
+    assignee: '',
+    startDate: '',
+    endDate: '',
+    progress: 0,
+    status: 'not-started'
+  });
+  const [showAddForm, setShowAddForm] = useState(false);
+
+  // Generate date range for timeline
+  const generateDateRange = () => {
+    const startDate = new Date('2025-08-12');
+    const endDate = new Date('2025-10-14');
+    const dates = [];
+    const current = new Date(startDate);
+    
+    while (current <= endDate) {
+      dates.push(new Date(current));
+      current.setDate(current.getDate() + 1);
+    }
+    return dates;
+  };
+
+  const dateRange = generateDateRange();
+  const totalDays = dateRange.length;
+
+  // Calculate task position and width
+  const getTaskPosition = (task) => {
+    const startDate = new Date(task.startDate);
+    const endDate = new Date(task.endDate);
+    const timelineStart = new Date('2025-08-12');
+    
+    const startDay = Math.floor((startDate - timelineStart) / (1000 * 60 * 60 * 24));
+    const duration = Math.floor((endDate - startDate) / (1000 * 60 * 60 * 24)) + 1;
+    
+    return {
+      left: (startDay / totalDays) * 100,
+      width: (duration / totalDays) * 100
+    };
+  };
+
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'completed': return 'bg-green-500';
+      case 'in-progress': return 'bg-blue-500';
+      case 'not-started': return 'bg-gray-400';
+      case 'delayed': return 'bg-red-500';
+      default: return 'bg-gray-400';
+    }
+  };
+
+  const addTask = () => {
+    if (newTask.name && newTask.startDate && newTask.endDate) {
+      setTasks([...tasks, {
+        ...newTask,
+        id: Math.max(...tasks.map(t => t.id)) + 1,
+        dependencies: []
+      }]);
+      setNewTask({
+        name: '',
+        assignee: '',
+        startDate: '',
+        endDate: '',
+        progress: 0,
+        status: 'not-started'
+      });
+      setShowAddForm(false);
+    }
+  };
+
+  const updateTask = (taskId, updates) => {
+    setTasks(tasks.map(task => 
+      task.id === taskId ? { ...task, ...updates } : task
+    ));
+    setEditingTask(null);
+  };
+
+  const deleteTask = (taskId) => {
+    setTasks(tasks.filter(task => task.id !== taskId));
+  };
+
+  const formatDate = (date) => {
+    return new Date(date).toLocaleDateString('en-US', { 
+      month: 'short', 
+      day: 'numeric' 
+    });
+  };
+
+  return (
+    <div className="p-6 bg-white">
+      <div className="mb-6">
+        <h1 className="text-3xl font-bold text-gray-800 mb-2">Project Gantt Chart</h1>
+        <div className="flex items-center gap-4 text-sm text-gray-600">
+          <div className="flex items-center gap-2">
+            <Calendar className="w-4 h-4" />
+            <span>Aug 12, 2025 - Oct 14, 2025</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <Clock className="w-4 h-4" />
+            <span>{tasks.length} Tasks</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Legend */}
+      <div className="mb-4 flex gap-4 text-sm">
+        <div className="flex items-center gap-2">
+          <div className="w-3 h-3 bg-green-500 rounded"></div>
+          <span>Completed</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="w-3 h-3 bg-blue-500 rounded"></div>
+          <span>In Progress</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="w-3 h-3 bg-gray-400 rounded"></div>
+          <span>Not Started</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="w-3 h-3 bg-red-500 rounded"></div>
+          <span>Delayed</span>
+        </div>
+      </div>
+
+      {/* Add Task Button */}
+      <button
+        onClick={() => setShowAddForm(!showAddForm)}
+        className="mb-4 flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+      >
+        <Plus className="w-4 h-4" />
+        Add Task
+      </button>
+
+      {/* Add Task Form */}
+      {showAddForm && (
+        <div className="mb-6 p-4 border rounded-lg bg-gray-50">
+          <h3 className="text-lg font-semibold mb-3">Add New Task</h3>
+          <div className="grid grid-cols-2 gap-4 mb-4">
+            <input
+              type="text"
+              placeholder="Task name"
+              className="px-3 py-2 border rounded-lg"
+              value={newTask.name}
+              onChange={(e) => setNewTask({...newTask, name: e.target.value})}
+            />
+            <input
+              type="text"
+              placeholder="Assignee"
+              className="px-3 py-2 border rounded-lg"
+              value={newTask.assignee}
+              onChange={(e) => setNewTask({...newTask, assignee: e.target.value})}
+            />
+            <input
+              type="date"
+              className="px-3 py-2 border rounded-lg"
+              value={newTask.startDate}
+              onChange={(e) => setNewTask({...newTask, startDate: e.target.value})}
+            />
+            <input
+              type="date"
+              className="px-3 py-2 border rounded-lg"
+              value={newTask.endDate}
+              onChange={(e) => setNewTask({...newTask, endDate: e.target.value})}
+            />
+          </div>
+          <div className="flex gap-2">
+            <button
+              onClick={addTask}
+              className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+            >
+              Add Task
+            </button>
+            <button
+              onClick={() => setShowAddForm(false)}
+              className="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Gantt Chart */}
+      <div className="border rounded-lg overflow-hidden">
+        {/* Timeline Header */}
+        <div className="flex bg-gray-100 border-b">
+          <div className="w-80 p-4 border-r bg-gray-50">
+            <span className="font-semibold text-gray-700">Tasks</span>
+          </div>
+          <div className="flex-1 relative">
+            <div className="flex">
+              {dateRange.filter((_, index) => index % 7 === 0).map((date, index) => (
+                <div
+                  key={index}
+                  className="flex-1 p-2 text-center text-sm font-medium text-gray-600 border-r"
+                >
+                  {formatDate(date)}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Tasks */}
+        {tasks.map((task, index) => {
+          const position = getTaskPosition(task);
+          return (
+            <div key={task.id} className={`flex ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
+              {/* Task Info */}
+              <div className="w-80 p-4 border-r">
+                {editingTask === task.id ? (
+                  /* Edit Form */
+                  <div className="space-y-2">
+                    <input
+                      type="text"
+                      className="w-full px-2 py-1 text-sm border rounded"
+                      value={task.name}
+                      onChange={(e) => updateTask(task.id, { name: e.target.value })}
+                    />
+                    <input
+                      type="text"
+                      className="w-full px-2 py-1 text-sm border rounded"
+                      placeholder="Assignee"
+                      value={task.assignee}
+                      onChange={(e) => updateTask(task.id, { assignee: e.target.value })}
+                    />
+                    <div className="flex gap-2">
+                      <input
+                        type="date"
+                        className="flex-1 px-2 py-1 text-sm border rounded"
+                        value={task.startDate}
+                        onChange={(e) => updateTask(task.id, { startDate: e.target.value })}
+                      />
+                      <input
+                        type="date"
+                        className="flex-1 px-2 py-1 text-sm border rounded"
+                        value={task.endDate}
+                        onChange={(e) => updateTask(task.id, { endDate: e.target.value })}
+                      />
+                    </div>
+                    <div className="flex gap-2">
+                      <select
+                        className="flex-1 px-2 py-1 text-sm border rounded"
+                        value={task.status}
+                        onChange={(e) => updateTask(task.id, { status: e.target.value })}
+                      >
+                        <option value="not-started">Not Started</option>
+                        <option value="in-progress">In Progress</option>
+                        <option value="completed">Completed</option>
+                        <option value="delayed">Delayed</option>
+                      </select>
+                      <input
+                        type="number"
+                        min="0"
+                        max="100"
+                        className="w-16 px-2 py-1 text-sm border rounded"
+                        value={task.progress}
+                        onChange={(e) => updateTask(task.id, { progress: parseInt(e.target.value) || 0 })}
+                      />
+                    </div>
+                    <div className="flex gap-1 justify-end">
+                      <button
+                        onClick={() => setEditingTask(null)}
+                        className="px-2 py-1 text-xs bg-green-600 text-white rounded hover:bg-green-700 transition-colors"
+                      >
+                        Save
+                      </button>
+                      <button
+                        onClick={() => setEditingTask(null)}
+                        className="px-2 py-1 text-xs bg-gray-500 text-white rounded hover:bg-gray-600 transition-colors"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  /* Display Mode */
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="font-medium text-gray-800">{task.name}</h4>
+                      <div className="flex items-center gap-2 mt-1">
+                        <User className="w-3 h-3 text-gray-500" />
+                        <span className="text-sm text-gray-600">{task.assignee}</span>
+                      </div>
+                      <div className="text-xs text-gray-500 mt-1">
+                        {formatDate(task.startDate)} - {formatDate(task.endDate)}
+                      </div>
+                      <div className="text-xs text-gray-500 mt-1 capitalize">
+                        Status: {task.status.replace('-', ' ')}
+                      </div>
+                    </div>
+                    <div className="flex gap-1">
+                      <button
+                        onClick={() => setEditingTask(task.id)}
+                        className="p-1 text-gray-400 hover:text-blue-600 transition-colors"
+                      >
+                        <Edit3 className="w-3 h-3" />
+                      </button>
+                      <button
+                        onClick={() => deleteTask(task.id)}
+                        className="p-1 text-gray-400 hover:text-red-600 transition-colors"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                      </button>
+                    </div>
+                  </div>
+                )}
+                {editingTask !== task.id && (
+                  <div className="mt-2">
+                    <div className="flex items-center gap-2">
+                      <div className="flex-1 bg-gray-200 rounded-full h-2">
+                        <div
+                          className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                          style={{ width: `${task.progress}%` }}
+                        ></div>
+                      </div>
+                      <span className="text-xs text-gray-600">{task.progress}%</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+              
+              {/* Timeline Bar */}
+              <div className="flex-1 relative p-4">
+                <div className="relative h-6">
+                  <div
+                    className={`absolute h-6 rounded-lg ${getStatusColor(task.status)} opacity-80 hover:opacity-100 transition-opacity cursor-pointer`}
+                    style={{
+                      left: `${position.left}%`,
+                      width: `${position.width}%`
+                    }}
+                    title={`${task.name}: ${task.progress}% complete`}
+                  >
+                    <div className="flex items-center h-full px-2">
+                      {task.status === 'completed' && (
+                        <CheckCircle className="w-3 h-3 text-white" />
+                      )}
+                    </div>
+                    {/* Progress overlay */}
+                    <div
+                      className="absolute top-0 left-0 h-full bg-black bg-opacity-20 rounded-lg"
+                      style={{ width: `${task.progress}%` }}
+                    ></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Project Summary */}
+      <div className="mt-6 p-4 bg-blue-50 rounded-lg">
+        <h3 className="font-semibold text-blue-800 mb-2">Project Summary</h3>
+        <div className="grid grid-cols-4 gap-4 text-sm">
+          <div>
+            <span className="text-blue-600 font-medium">Total Tasks:</span>
+            <div className="text-lg font-bold text-blue-800">{tasks.length}</div>
+          </div>
+          <div>
+            <span className="text-green-600 font-medium">Completed:</span>
+            <div className="text-lg font-bold text-green-700">
+              {tasks.filter(t => t.status === 'completed').length}
+            </div>
+          </div>
+          <div>
+            <span className="text-blue-600 font-medium">In Progress:</span>
+            <div className="text-lg font-bold text-blue-700">
+              {tasks.filter(t => t.status === 'in-progress').length}
+            </div>
+          </div>
+          <div>
+            <span className="text-gray-600 font-medium">Not Started:</span>
+            <div className="text-lg font-bold text-gray-700">
+              {tasks.filter(t => t.status === 'not-started').length}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default GanttChart;

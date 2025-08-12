@@ -86,35 +86,34 @@ const GanttChart = () => {
   });
   const [showAddForm, setShowAddForm] = useState(false);
 
-  // Generate date range for timeline
-  const generateDateRange = () => {
-    const startDate = new Date('2025-08-12');
-    const endDate = new Date('2025-10-14');
-    const dates = [];
-    const current = new Date(startDate);
-    
-    while (current <= endDate) {
-      dates.push(new Date(current));
-      current.setDate(current.getDate() + 1);
-    }
-    return dates;
-  };
+  // Generate months for the year
+  const months = [
+    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+  ];
 
-  const dateRange = generateDateRange();
-  const totalDays = dateRange.length;
+  const quarters = [
+    { name: 'Q1', months: [0, 1, 2] },
+    { name: 'Q2', months: [3, 4, 5] },
+    { name: 'Q3', months: [6, 7, 8] },
+    { name: 'Q4', months: [9, 10, 11] }
+  ];
 
-  // Calculate task position and width
+  // Calculate task position and width based on months
   const getTaskPosition = (task) => {
     const startDate = new Date(task.startDate);
     const endDate = new Date(task.endDate);
-    const timelineStart = new Date('2025-08-12');
     
-    const startDay = Math.floor((startDate - timelineStart) / (1000 * 60 * 60 * 24));
-    const duration = Math.floor((endDate - startDate) / (1000 * 60 * 60 * 24)) + 1;
+    const startMonth = startDate.getMonth();
+    const endMonth = endDate.getMonth();
+    
+    // Calculate position within the year (0-12 months)
+    const startPosition = startMonth + (startDate.getDate() - 1) / 30; // Approximate days in month
+    const endPosition = endMonth + endDate.getDate() / 30;
     
     return {
-      left: (startDay / totalDays) * 100,
-      width: (duration / totalDays) * 100
+      left: (startPosition / 12) * 100,
+      width: ((endPosition - startPosition) / 12) * 100
     };
   };
 
@@ -151,7 +150,6 @@ const GanttChart = () => {
     setTasks(tasks.map(task => 
       task.id === taskId ? { ...task, ...updates } : task
     ));
-    setEditingTask(null);
   };
 
   const deleteTask = (taskId) => {
@@ -172,7 +170,7 @@ const GanttChart = () => {
         <div className="flex items-center gap-4 text-sm text-gray-600">
           <div className="flex items-center gap-2">
             <Calendar className="w-4 h-4" />
-            <span>Aug 12, 2025 - Oct 14, 2025</span>
+            <span>2025 Annual Timeline</span>
           </div>
           <div className="flex items-center gap-2">
             <Clock className="w-4 h-4" />
@@ -241,6 +239,25 @@ const GanttChart = () => {
               value={newTask.endDate}
               onChange={(e) => setNewTask({...newTask, endDate: e.target.value})}
             />
+            <select
+              className="px-3 py-2 border rounded-lg"
+              value={newTask.status}
+              onChange={(e) => setNewTask({...newTask, status: e.target.value})}
+            >
+              <option value="not-started">Not Started</option>
+              <option value="in-progress">In Progress</option>
+              <option value="completed">Completed</option>
+              <option value="delayed">Delayed</option>
+            </select>
+            <input
+              type="number"
+              placeholder="Progress %"
+              className="px-3 py-2 border rounded-lg"
+              min="0"
+              max="100"
+              value={newTask.progress}
+              onChange={(e) => setNewTask({...newTask, progress: parseInt(e.target.value) || 0})}
+            />
           </div>
           <div className="flex gap-2">
             <button
@@ -259,8 +276,102 @@ const GanttChart = () => {
         </div>
       )}
 
+      {/* Edit Task Form */}
+      {editingTask && (
+        <div className="mb-6 p-4 border rounded-lg bg-blue-50">
+          <h3 className="text-lg font-semibold mb-3">Edit Task</h3>
+          {(() => {
+            const task = tasks.find(t => t.id === editingTask);
+            return task ? (
+              <div>
+                <div className="grid grid-cols-2 gap-4 mb-4">
+                  <input
+                    type="text"
+                    placeholder="Task name"
+                    className="px-3 py-2 border rounded-lg"
+                    value={task.name}
+                    onChange={(e) => updateTask(editingTask, {name: e.target.value})}
+                  />
+                  <input
+                    type="text"
+                    placeholder="Assignee"
+                    className="px-3 py-2 border rounded-lg"
+                    value={task.assignee}
+                    onChange={(e) => updateTask(editingTask, {assignee: e.target.value})}
+                  />
+                  <input
+                    type="date"
+                    className="px-3 py-2 border rounded-lg"
+                    value={task.startDate}
+                    onChange={(e) => updateTask(editingTask, {startDate: e.target.value})}
+                  />
+                  <input
+                    type="date"
+                    className="px-3 py-2 border rounded-lg"
+                    value={task.endDate}
+                    onChange={(e) => updateTask(editingTask, {endDate: e.target.value})}
+                  />
+                  <select
+                    className="px-3 py-2 border rounded-lg"
+                    value={task.status}
+                    onChange={(e) => updateTask(editingTask, {status: e.target.value})}
+                  >
+                    <option value="not-started">Not Started</option>
+                    <option value="in-progress">In Progress</option>
+                    <option value="completed">Completed</option>
+                    <option value="delayed">Delayed</option>
+                  </select>
+                  <input
+                    type="number"
+                    placeholder="Progress %"
+                    className="px-3 py-2 border rounded-lg"
+                    min="0"
+                    max="100"
+                    value={task.progress}
+                    onChange={(e) => updateTask(editingTask, {progress: parseInt(e.target.value) || 0})}
+                  />
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setEditingTask(null)}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  >
+                    Save Changes
+                  </button>
+                  <button
+                    onClick={() => setEditingTask(null)}
+                    className="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            ) : null;
+          })()}
+        </div>
+      )}
+
       {/* Gantt Chart */}
       <div className="border rounded-lg overflow-hidden">
+        {/* Quarter Header */}
+        <div className="flex bg-gray-200 border-b">
+          <div className="w-80 p-3 border-r bg-gray-100">
+            <span className="font-semibold text-gray-700">Quarters</span>
+          </div>
+          <div className="flex-1">
+            <div className="flex">
+              {quarters.map((quarter) => (
+                <div
+                  key={quarter.name}
+                  className="flex-1 p-2 text-center font-bold text-gray-700 border-r bg-gradient-to-r from-indigo-100 to-indigo-200"
+                >
+                  {quarter.name}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
         {/* Timeline Header */}
         <div className="flex bg-gray-100 border-b">
           <div className="w-80 p-4 border-r bg-gray-50">
@@ -268,12 +379,12 @@ const GanttChart = () => {
           </div>
           <div className="flex-1 relative">
             <div className="flex">
-              {dateRange.filter((_, index) => index % 7 === 0).map((date, index) => (
+              {months.map((month, index) => (
                 <div
                   key={index}
-                  className="flex-1 p-2 text-center text-sm font-medium text-gray-600 border-r"
+                  className="flex-1 p-3 text-center text-sm font-medium text-gray-600 border-r hover:bg-gray-200 transition-colors"
                 >
-                  {formatDate(date)}
+                  {month}
                 </div>
               ))}
             </div>
@@ -287,116 +398,43 @@ const GanttChart = () => {
             <div key={task.id} className={`flex ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
               {/* Task Info */}
               <div className="w-80 p-4 border-r">
-                {editingTask === task.id ? (
-                  /* Edit Form */
-                  <div className="space-y-2">
-                    <input
-                      type="text"
-                      className="w-full px-2 py-1 text-sm border rounded"
-                      value={task.name}
-                      onChange={(e) => updateTask(task.id, { name: e.target.value })}
-                    />
-                    <input
-                      type="text"
-                      className="w-full px-2 py-1 text-sm border rounded"
-                      placeholder="Assignee"
-                      value={task.assignee}
-                      onChange={(e) => updateTask(task.id, { assignee: e.target.value })}
-                    />
-                    <div className="flex gap-2">
-                      <input
-                        type="date"
-                        className="flex-1 px-2 py-1 text-sm border rounded"
-                        value={task.startDate}
-                        onChange={(e) => updateTask(task.id, { startDate: e.target.value })}
-                      />
-                      <input
-                        type="date"
-                        className="flex-1 px-2 py-1 text-sm border rounded"
-                        value={task.endDate}
-                        onChange={(e) => updateTask(task.id, { endDate: e.target.value })}
-                      />
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h4 className="font-medium text-gray-800">{task.name}</h4>
+                    <div className="flex items-center gap-2 mt-1">
+                      <User className="w-3 h-3 text-gray-500" />
+                      <span className="text-sm text-gray-600">{task.assignee}</span>
                     </div>
-                    <div className="flex gap-2">
-                      <select
-                        className="flex-1 px-2 py-1 text-sm border rounded"
-                        value={task.status}
-                        onChange={(e) => updateTask(task.id, { status: e.target.value })}
-                      >
-                        <option value="not-started">Not Started</option>
-                        <option value="in-progress">In Progress</option>
-                        <option value="completed">Completed</option>
-                        <option value="delayed">Delayed</option>
-                      </select>
-                      <input
-                        type="number"
-                        min="0"
-                        max="100"
-                        className="w-16 px-2 py-1 text-sm border rounded"
-                        value={task.progress}
-                        onChange={(e) => updateTask(task.id, { progress: parseInt(e.target.value) || 0 })}
-                      />
-                    </div>
-                    <div className="flex gap-1 justify-end">
-                      <button
-                        onClick={() => setEditingTask(null)}
-                        className="px-2 py-1 text-xs bg-green-600 text-white rounded hover:bg-green-700 transition-colors"
-                      >
-                        Save
-                      </button>
-                      <button
-                        onClick={() => setEditingTask(null)}
-                        className="px-2 py-1 text-xs bg-gray-500 text-white rounded hover:bg-gray-600 transition-colors"
-                      >
-                        Cancel
-                      </button>
+                    <div className="text-xs text-gray-500 mt-1">
+                      {new Date(task.startDate).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })} - {new Date(task.endDate).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}
                     </div>
                   </div>
-                ) : (
-                  /* Display Mode */
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h4 className="font-medium text-gray-800">{task.name}</h4>
-                      <div className="flex items-center gap-2 mt-1">
-                        <User className="w-3 h-3 text-gray-500" />
-                        <span className="text-sm text-gray-600">{task.assignee}</span>
-                      </div>
-                      <div className="text-xs text-gray-500 mt-1">
-                        {formatDate(task.startDate)} - {formatDate(task.endDate)}
-                      </div>
-                      <div className="text-xs text-gray-500 mt-1 capitalize">
-                        Status: {task.status.replace('-', ' ')}
-                      </div>
-                    </div>
-                    <div className="flex gap-1">
-                      <button
-                        onClick={() => setEditingTask(task.id)}
-                        className="p-1 text-gray-400 hover:text-blue-600 transition-colors"
-                      >
-                        <Edit3 className="w-3 h-3" />
-                      </button>
-                      <button
-                        onClick={() => deleteTask(task.id)}
-                        className="p-1 text-gray-400 hover:text-red-600 transition-colors"
-                      >
-                        <Trash2 className="w-3 h-3" />
-                      </button>
-                    </div>
+                  <div className="flex gap-1">
+                    <button
+                      onClick={() => setEditingTask(task.id)}
+                      className="p-1 text-gray-400 hover:text-blue-600 transition-colors"
+                    >
+                      <Edit3 className="w-3 h-3" />
+                    </button>
+                    <button
+                      onClick={() => deleteTask(task.id)}
+                      className="p-1 text-gray-400 hover:text-red-600 transition-colors"
+                    >
+                      <Trash2 className="w-3 h-3" />
+                    </button>
                   </div>
-                )}
-                {editingTask !== task.id && (
-                  <div className="mt-2">
-                    <div className="flex items-center gap-2">
-                      <div className="flex-1 bg-gray-200 rounded-full h-2">
-                        <div
-                          className="bg-blue-600 h-2 rounded-full transition-all duration-300"
-                          style={{ width: `${task.progress}%` }}
-                        ></div>
-                      </div>
-                      <span className="text-xs text-gray-600">{task.progress}%</span>
+                </div>
+                <div className="mt-2">
+                  <div className="flex items-center gap-2">
+                    <div className="flex-1 bg-gray-200 rounded-full h-2">
+                      <div
+                        className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                        style={{ width: `${task.progress}%` }}
+                      ></div>
                     </div>
+                    <span className="text-xs text-gray-600">{task.progress}%</span>
                   </div>
-                )}
+                </div>
               </div>
               
               {/* Timeline Bar */}

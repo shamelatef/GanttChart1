@@ -585,19 +585,44 @@
                 return;
             }
 
-            tasksList.innerHTML = tasks.map(task => `
-                <div class="task-item" style="border-left-color: ${task.color}">
-                    <div class="task-info">
-                        <div class="task-name">${task.name}</div>
-                        <div class="task-dates">${formatDate(task.startDate)}</div>
-                        <div class="task-dates">${formatDate(task.endDate)}</div>
-                    </div>
-                    <button class="delete-btn" onclick="deleteTask(${task.id})">Delete</button>
-                    <button class="delete-btn" style="background: linear-gradient(45deg, #4facfe, #00f2fe)" onclick="editTask(${task.id})">Edit</button>
-                </div>
-            `).join('');
+tasksList.innerHTML = tasks.map(task => `
+    <div class="task-item" style="border-left-color: ${task.color}">
+        <div class="task-info">
+            <input type="text" value="${task.name}" 
+                   onchange="updateTaskField(${task.id}, 'name', this.value)" />
+            <input type="date" value="${task.startDate}" 
+                   onchange="updateTaskField(${task.id}, 'startDate', this.value)" />
+            <input type="date" value="${task.endDate}" 
+                   onchange="updateTaskField(${task.id}, 'endDate', this.value)" />
+            <input type="color" value="${task.color}" 
+                   onchange="updateTaskField(${task.id}, 'color', this.value)" />
+        </div>
+        <button class="delete-btn" onclick="deleteTask(${task.id})">Delete</button>
+    </div>
+`).join('');
 
         }
+
+        function updateTaskField(taskId, field, value) {
+    const task = tasks.find(t => t.id === taskId);
+    if (!task) return;
+
+    // Validation: dates
+    if (field === 'startDate' && new Date(value) > new Date(task.endDate)) {
+        alert('Start date cannot be after end date');
+        return;
+    }
+    if (field === 'endDate' && new Date(value) < new Date(task.startDate)) {
+        alert('End date cannot be before start date');
+        return;
+    }
+
+    task[field] = value;
+    saveTasks();
+    updateTasksList();
+    updateChart();
+}
+
 
         function formatDate(dateString) {
             const date = new Date(dateString);

@@ -1,6 +1,8 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dynamic Gantt Chart</title>
@@ -423,6 +425,8 @@
         </div>
 
         <div class="controls">
+            <button class="btn btn-secondary" onclick="saveChartAsPNG()">Save as PNG</button>
+
             <div class="form-group">
                 <label for="taskName">Task Name</label>
                 <input type="text" id="taskName" placeholder="Enter task name">
@@ -455,7 +459,16 @@
 
     <script>
         let tasks = [];
-        
+        function saveChartAsPNG() {
+    const chart = document.getElementById('ganttChart');
+    html2canvas(chart, { scale: 2 }).then(canvas => {
+        const link = document.createElement('a');
+        link.download = 'gantt_chart.png';
+        link.href = canvas.toDataURL('image/png');
+        link.click();
+    });
+}
+
         // Load tasks from localStorage on page load
         window.onload = function() {
             loadTasks();

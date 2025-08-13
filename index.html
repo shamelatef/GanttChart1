@@ -490,36 +490,49 @@
             }
         }
 
-        function addTask() {
-            const taskName = document.getElementById('taskName').value.trim();
-            const startDate = document.getElementById('startDate').value;
-            const endDate = document.getElementById('endDate').value;
-            const taskColor = document.getElementById('taskColor').value;
+   function addTask() {
+    const taskName = document.getElementById('taskName').value.trim();
+    const startDate = document.getElementById('startDate').value;
+    const endDate = document.getElementById('endDate').value;
+    const taskColor = document.getElementById('taskColor').value;
 
-            if (!taskName || !startDate || !endDate) {
-                alert('Please fill in all fields');
-                return;
-            }
+    if (!taskName || !startDate || !endDate) {
+        alert('Please fill in all fields');
+        return;
+    }
 
-            if (new Date(startDate) > new Date(endDate)) {
-                alert('Start date cannot be after end date');
-                return;
-            }
+    if (new Date(startDate) > new Date(endDate)) {
+        alert('Start date cannot be after end date');
+        return;
+    }
 
-            const task = {
-                id: Date.now(),
-                name: taskName,
-                startDate: startDate,
-                endDate: endDate,
-                color: taskColor
-            };
+    if (editingTaskId) {
+        // Update existing task
+        const task = tasks.find(t => t.id === editingTaskId);
+        task.name = taskName;
+        task.startDate = startDate;
+        task.endDate = endDate;
+        task.color = taskColor;
+        editingTaskId = null;
+        document.querySelector('.btn-primary').textContent = 'Add Task';
+    } else {
+        // Add new task
+        const task = {
+            id: Date.now(),
+            name: taskName,
+            startDate: startDate,
+            endDate: endDate,
+            color: taskColor
+        };
+        tasks.push(task);
+    }
 
-            tasks.push(task);
-            saveTasks();
-            updateTasksList();
-            updateChart();
-            clearForm();
-        }
+    saveTasks();
+    updateTasksList();
+    updateChart();
+    clearForm();
+}
+
 
         function deleteTask(taskId) {
             tasks = tasks.filter(task => task.id !== taskId);
@@ -542,11 +555,14 @@
             }
         }
 
-        function clearForm() {
-            document.getElementById('taskName').value = '';
-            setTodayDate();
-            document.getElementById('taskColor').value = '#667eea';
-        }
+       function clearForm() {
+    document.getElementById('taskName').value = '';
+    setTodayDate();
+    document.getElementById('taskColor').value = '#667eea';
+    editingTaskId = null;
+    document.querySelector('.btn-primary').textContent = 'Add Task';
+}
+
 
         function updateTasksList() {
             const tasksList = document.getElementById('tasksList');
@@ -564,8 +580,10 @@
                         <div class="task-dates">${formatDate(task.endDate)}</div>
                     </div>
                     <button class="delete-btn" onclick="deleteTask(${task.id})">Delete</button>
+                    <button class="delete-btn" style="background: linear-gradient(45deg, #4facfe, #00f2fe)" onclick="editTask(${task.id})">Edit</button>
                 </div>
             `).join('');
+
         }
 
         function formatDate(dateString) {
@@ -678,6 +696,19 @@
 
             return quarters;
         }
+            let editingTaskId = null;
+function editTask(taskId) {
+    const task = tasks.find(t => t.id === taskId);
+    if (!task) return;
+
+    document.getElementById('taskName').value = task.name;
+    document.getElementById('startDate').value = task.startDate;
+    document.getElementById('endDate').value = task.endDate;
+    document.getElementById('taskColor').value = task.color;
+
+    editingTaskId = taskId;
+    document.querySelector('.btn-primary').textContent = 'Update Task';
+}
 
         function getMonthShortName(monthNum) {
             const names = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',

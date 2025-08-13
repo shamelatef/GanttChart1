@@ -633,63 +633,67 @@ tasksList.innerHTML = tasks.map(task => `
             });
         }
 
-function updateChart() {
-    const chart = document.querySelector('.chart-container');
-    chart.innerHTML = '';
+        function updateChart() {
+            const chartContainer = document.getElementById('ganttChart');
+            
+            if (tasks.length === 0) {
+                chartContainer.innerHTML = '<div class="no-tasks">Add tasks to see your Gantt chart</div>';
+                return;
+            }
 
-    tasks.forEach((task, index) => {
-        const bar = document.createElement('div');
-        bar.classList.add('task-bar');
-        bar.draggable = true;
-        bar.dataset.index = index;
+            // Calculate date range
+            const allDates = tasks.flatMap(task => [new Date(task.startDate), new Date(task.endDate)]);
+            const minDate = new Date(Math.min(...allDates));
+            const maxDate = new Date(Math.max(...allDates));
+            
+            // Get month range
+            const months = getMonthRange(minDate, maxDate);
 
-        // Positioning logic
-        const start = new Date(task.startDate);
-        const end = new Date(task.endDate);
-        const totalDays = (end - start) / (1000 * 60 * 60 * 24);
-        const startOffset = (start - chartStartDate) / (1000 * 60 * 60 * 24);
+            // Group months by quarters
+            const quarterGroups = groupMonthsByQuarters(months);
 
-        bar.style.left = `${startOffset * dayWidth}px`;
-        bar.style.top = `${index * 30}px`;
-        bar.style.width = `${(totalDays + 1) * dayWidth}px`;
-        bar.style.backgroundColor = task.color;
-        bar.textContent = task.name;
+            // Create timeline header with quarters and months
+            const quartersHTML = quarterGroups.map(quarter => {
+                const quarterWidth = (quarter.months.length / months.length) * 100;
+                return `
+                    <div class="timeline-quarter" style="flex: ${quarter.months.length};">
+                        <div class="quarter-year">${quarter.year}</div>
+                        <div class="quarter-name">Q${quarter.quarter}</div>
+                    </div>
+                `;
+            }).join('');
 
-        // Drag events
-        bar.addEventListener('dragstart', dragStart);
-        bar.addEventListener('dragover', dragOver);
-        bar.addEventListener('drop', drop);
+            const monthsHTML = months.map(month => `
+                <div class="month-cell">
+                    ${getMonthShortName(month.month)} ${month.year.toString().slice(-2)}
+                </div>
+            `).join('');
 
-        chart.appendChild(bar);
-    });
-}
+            // Calculate today's position
+            const today = new Date();
+            const todayPosition = calculateTodayPosition(today, months);
 
-let draggedIndex = null;
+            const chartHTML = `
+                <div class="chart-header">
+                    <div class="chart-title">Tasks</div>
+                    <div class="timeline-container">
+                        <div class="timeline-quarters">${quartersHTML}</div>
+                        <div class="timeline-months">${monthsHTML}</div>
+                    </div>
+                </div>
+                <div class="chart-body">
+                    ${todayPosition >= 0 ? `
+                        <div class="today-line" style="left: ${200 + todayPosition}px; height: ${tasks.length * 55 + 20}px;">
+                            <div class="today-marker"></div>
+                        </div>
+                    ` : ''}
+                    ${tasks.map(task => createTaskRow(task, months)).join('')}
+                </div>
+            `;
 
-function dragStart(e) {
-    draggedIndex = +e.target.dataset.index;
-    e.dataTransfer.effectAllowed = 'move';
-}
+            chartContainer.innerHTML = chartHTML;
+        }
 
-function dragOver(e) {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
-}
-
-function drop(e) {
-    e.preventDefault();
-    const targetIndex = +e.target.dataset.index;
-    if (targetIndex === draggedIndex) return;
-
-    // Swap in array
-    const draggedTask = tasks[draggedIndex];
-    tasks.splice(draggedIndex, 1);
-    tasks.splice(targetIndex, 0, draggedTask);
-
-    saveTasks();
-    updateTasksList();
-    updateChart();
-}
         function getMonthRange(startDate, endDate) {
             const months = [];
             const current = new Date(startDate.getFullYear(), startDate.getMonth(), 1);

@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
 
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -476,6 +477,42 @@
             updateTasksList();
             updateChart();
         };
+function updateChart() {
+    const chart = document.querySelector('.chart-container');
+    chart.innerHTML = ''; // clear old chart
+
+    tasks.forEach((task, index) => {
+        const wrapper = document.createElement('div');
+        wrapper.className = 'task-row';
+        wrapper.dataset.index = index;
+
+        const bar = document.createElement('div');
+        bar.className = 'task-bar';
+        bar.style.backgroundColor = task.color;
+        bar.style.left = calculateLeft(task.startDate) + 'px';
+        bar.style.width = calculateWidth(task.startDate, task.endDate) + 'px';
+        bar.innerText = task.name;
+
+        wrapper.appendChild(bar);
+        chart.appendChild(wrapper);
+    });
+
+    enableDrag();
+}
+function enableDrag() {
+    const chart = document.querySelector('.chart-container');
+
+    Sortable.create(chart, {
+        animation: 150,
+        onEnd: (evt) => {
+            const movedTask = tasks.splice(evt.oldIndex, 1)[0];
+            tasks.splice(evt.newIndex, 0, movedTask);
+            saveTasks();
+            updateTasksList();
+            updateChart();
+        }
+    });
+}
 
         function loadTasks() {
             const savedTasks = localStorage.getItem('ganttTasks');

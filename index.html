@@ -424,6 +424,13 @@
 
         .chart-group.dragging {
             opacity: 0.5;
+            transform: scale(0.95);
+        }
+
+        .chart-group.drag-over {
+            background-color: rgba(102, 126, 234, 0.1);
+            border: 2px dashed #667eea;
+            border-radius: 10px;
         }
 
         .chart-group-header {
@@ -433,16 +440,35 @@
             margin-bottom: 5px;
             background: linear-gradient(135deg, #f0f4ff, #e8f0fe);
             border-radius: 8px;
-            cursor: pointer;
+            cursor: move;
             transition: all 0.3s ease;
+            position: relative;
+        }
+
+        .chart-group-header::before {
+            content: '⋮⋮';
+            position: absolute;
+            left: 5px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #667eea;
+            font-size: 1.2rem;
+            line-height: 0.8;
+            opacity: 0.6;
+            pointer-events: none;
         }
 
         .chart-group-header:hover {
             background: linear-gradient(135deg, #e8f0fe, #d8e8fd);
+            box-shadow: 0 2px 8px rgba(102, 126, 234, 0.2);
+        }
+
+        .chart-group-header:hover::before {
+            opacity: 1;
         }
 
         .chart-group-label {
-            padding: 12px 15px;
+            padding: 12px 15px 12px 25px;
             font-weight: 700;
             color: #2c3e50;
             background: linear-gradient(135deg, #667eea, #764ba2);
@@ -451,6 +477,7 @@
             background-clip: text;
             display: flex;
             align-items: center;
+            user-select: none;
         }
 
         .chart-group-toggle {
@@ -490,10 +517,23 @@
             transition: all 0.3s ease;
             position: relative;
             cursor: move;
+            border-radius: 6px;
+        }
+
+        .chart-row:hover {
+            background-color: rgba(102, 126, 234, 0.05);
+            box-shadow: 0 2px 6px rgba(102, 126, 234, 0.1);
         }
 
         .chart-row.dragging {
             opacity: 0.5;
+            transform: scale(0.95) rotate(2deg);
+        }
+
+        .chart-row.drag-over {
+            background-color: rgba(102, 126, 234, 0.1);
+            border: 2px dashed #667eea;
+            transform: translateY(-2px);
         }
 
         .task-label {
@@ -1045,35 +1085,93 @@
         }
 
         function handleDragStart(e) {
-            if (e.target.dataset.taskId) {
+            // Handle task items in the list
+            if (e.target.dataset.taskId && e.target.classList.contains('task-item')) {
                 draggedElement = e.target;
                 draggedType = 'task';
                 e.dataTransfer.setData('text/plain', e.target.dataset.taskId);
                 e.target.classList.add('dragging');
-            } else if (e.target.dataset.group) {
+            } 
+            // Handle group items in the list
+            else if (e.target.dataset.group && e.target.classList.contains('group-item')) {
                 draggedElement = e.target;
                 draggedType = 'group';
                 e.dataTransfer.setData('text/plain', e.target.dataset.group);
                 e.target.classList.add('dragging');
             }
+            // Handle chart rows (tasks in the chart)
+            else if (e.target.closest('.chart-row')) {
+                const chartRow = e.target.closest('.chart-row');
+                if (chartRow.dataset.taskId) {
+                    draggedElement = chartRow;
+                    draggedType = 'chart-task';
+                    e.dataTransfer.setData('text/plain', chartRow.dataset.taskId);
+                    chartRow.classList.add('dragging');
+                }
+            }
+            // Handle chart group headers - check for group header first, then group container
+            else if (e.target.closest('.chart-group-header')) {
+                const chartGroup = e.target.closest('.chart-group');
+                if (chartGroup && chartGroup.dataset.group) {
+                    draggedElement = chartGroup;
+                    draggedType = 'chart-group';
+                    e.dataTransfer.setData('text/plain', chartGroup.dataset.group);
+                    chartGroup.classList.add('dragging');
+                    e.dataTransfer.effectAllowed = 'move';
+                }
+            }
+            // Handle chart groups (fallback)
+            else if (e.target.closest('.chart-group')) {
+                const chartGroup = e.target.closest('.chart-group');
+                if (chartGroup.dataset.group) {
+                    draggedElement = chartGroup;
+                    draggedType = 'chart-group';
+                    e.dataTransfer.setData('text/plain', chartGroup.dataset.group);
+                    chartGroup.classList.add('dragging');
+                    e.dataTransfer.effectAllowed = 'move';
+                }
+            }
         }
 
         function handleDragOver(e) {
             e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+            
+            // Handle drop zones in the list
             const dropZone = e.target.closest('.drop-zone');
             if (dropZone) {
                 dropZone.classList.add('drag-over');
+                return;
+            }
+
+            // Handle chart drop zones
+            const chartGroup = e.target.closest('.chart-group');
+            const chartRow = e.target.closest('.chart-row');
+            
+            if (draggedType === 'chart-task' || draggedType === 'task') {
+                // Allow dropping on chart groups or between chart rows
+                if (chartGroup && !chartRow) {
+                    chartGroup.classList.add('drag-over');
+                } else if (chartRow && chartRow !== draggedElement) {
+                    chartRow.classList.add('drag-over');
+                }
+            } else if (draggedType === 'chart-group' || draggedType === 'group') {
+                // Allow dropping between groups
+                if (chartGroup && chartGroup !== draggedElement) {
+                    chartGroup.classList.add('drag-over');
+                }
             }
         }
 
         function handleDrop(e) {
             e.preventDefault();
-            const dropZone = e.target.closest('.drop-zone');
             
+            // Handle list drop zones
+            const dropZone = e.target.closest('.drop-zone');
             if (dropZone) {
                 dropZone.classList.remove('drag-over');
                 
-                if (draggedType === 'task') {
+                if (draggedType === 'task' || draggedType === 'chart-task') {
                     const taskId = parseInt(e.dataTransfer.getData('text/plain'));
                     const targetGroup = dropZone.dataset.group;
                     
@@ -1081,21 +1179,39 @@
                         updateTaskField(taskId, 'group', targetGroup);
                     }
                 }
-            } else if (draggedType === 'group') {
-                // Handle group reordering
-                const targetGroup = e.target.closest('.group-item');
-                if (targetGroup && targetGroup !== draggedElement) {
-                    const draggedGroupName = draggedElement.dataset.group;
-                    const targetGroupName = targetGroup.dataset.group;
+                return;
+            }
+
+            // Handle chart drops
+            const chartGroup = e.target.closest('.chart-group');
+            const chartRow = e.target.closest('.chart-row');
+            
+            if (draggedType === 'chart-task' || draggedType === 'task') {
+                if (chartGroup && !chartRow) {
+                    // Dropped on a chart group - move task to that group
+                    const taskId = parseInt(e.dataTransfer.getData('text/plain'));
+                    const targetGroupName = chartGroup.dataset.group;
                     
-                    const draggedIndex = groupOrder.indexOf(draggedGroupName);
-                    const targetIndex = groupOrder.indexOf(targetGroupName);
+                    if (taskId && targetGroupName) {
+                        updateTaskField(taskId, 'group', targetGroupName);
+                    }
+                } else if (chartRow && chartRow !== draggedElement) {
+                    // Dropped on another task - reorder within group or move to target task's group
+                    const draggedTaskId = parseInt(e.dataTransfer.getData('text/plain'));
+                    const targetTaskId = parseInt(chartRow.dataset.taskId);
                     
-                    if (draggedIndex !== -1 && targetIndex !== -1) {
-                        groupOrder.splice(draggedIndex, 1);
-                        groupOrder.splice(targetIndex, 0, draggedGroupName);
-                        updateGroupsList();
-                        updateChart();
+                    if (draggedTaskId && targetTaskId) {
+                        reorderTasks(draggedTaskId, targetTaskId);
+                    }
+                }
+            } else if (draggedType === 'chart-group' || draggedType === 'group') {
+                if (chartGroup && chartGroup !== draggedElement) {
+                    // Reorder groups
+                    const draggedGroupName = e.dataTransfer.getData('text/plain');
+                    const targetGroupName = chartGroup.dataset.group;
+                    
+                    if (draggedGroupName && targetGroupName) {
+                        reorderGroups(draggedGroupName, targetGroupName);
                     }
                 }
             }
@@ -1108,10 +1224,52 @@
                 draggedType = null;
             }
             
-            // Remove any remaining drag-over classes
+            // Remove all drag-over classes
             document.querySelectorAll('.drag-over').forEach(el => {
                 el.classList.remove('drag-over');
             });
+        }
+
+        function reorderTasks(draggedTaskId, targetTaskId) {
+            const draggedTask = tasks.find(t => t.id === draggedTaskId);
+            const targetTask = tasks.find(t => t.id === targetTaskId);
+            
+            if (!draggedTask || !targetTask) return;
+            
+            // If tasks are in different groups, move dragged task to target's group
+            if (draggedTask.group !== targetTask.group) {
+                updateTaskField(draggedTaskId, 'group', targetTask.group);
+            } else {
+                // Reorder within the same group
+                const groupTasks = tasks.filter(t => t.group === draggedTask.group);
+                const draggedIndex = groupTasks.findIndex(t => t.id === draggedTaskId);
+                const targetIndex = groupTasks.findIndex(t => t.id === targetTaskId);
+                
+                if (draggedIndex !== -1 && targetIndex !== -1) {
+                    // Remove the dragged task from its current position
+                    const taskIndex = tasks.findIndex(t => t.id === draggedTaskId);
+                    const [movedTask] = tasks.splice(taskIndex, 1);
+                    
+                    // Find the new position in the main tasks array
+                    const targetTaskIndex = tasks.findIndex(t => t.id === targetTaskId);
+                    tasks.splice(targetTaskIndex, 0, movedTask);
+                    
+                    updateGroupsList();
+                    updateChart();
+                }
+            }
+        }
+
+        function reorderGroups(draggedGroupName, targetGroupName) {
+            const draggedIndex = groupOrder.indexOf(draggedGroupName);
+            const targetIndex = groupOrder.indexOf(targetGroupName);
+            
+            if (draggedIndex !== -1 && targetIndex !== -1) {
+                groupOrder.splice(draggedIndex, 1);
+                groupOrder.splice(targetIndex, 0, draggedGroupName);
+                updateGroupsList();
+                updateChart();
+            }
         }
 
         function formatDate(dateString) {

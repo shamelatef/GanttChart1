@@ -990,15 +990,25 @@
 
                 return `
                     <div class="chart-group">
-                        <div class="chart-group-header" onclick="toggleGroup('${groupName}')">
-                            <div class="chart-group-label">
-                                <span class="chart-group-toggle ${isExpanded ? '' : 'collapsed'}">▼</span>
-                                ${groupName} (${groupTasks.length})
+                        ${!isExpanded ? `
+                            <div class="chart-group-header" onclick="toggleGroup('${groupName}')">
+                                <div class="chart-group-label">
+                                    <span class="chart-group-toggle collapsed">▼</span>
+                                    ${groupName} (${groupTasks.length})
+                                </div>
+                                <div class="chart-group-timeline">
+                                    ${groupBarHTML}
+                                </div>
                             </div>
-                            <div class="chart-group-timeline">
-                                ${groupBarHTML}
+                        ` : `
+                            <div class="chart-group-header" onclick="toggleGroup('${groupName}')" style="background: transparent; margin-bottom: 10px;">
+                                <div class="chart-group-label">
+                                    <span class="chart-group-toggle">▼</span>
+                                    ${groupName} (${groupTasks.length})
+                                </div>
+                                <div class="chart-group-timeline" style="opacity: 0;"></div>
                             </div>
-                        </div>
+                        `}
                         <div class="chart-group-tasks ${isExpanded ? '' : 'collapsed'}">
                             ${tasksHTML}
                         </div>

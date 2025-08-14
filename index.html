@@ -219,6 +219,7 @@
             padding: 25px;
             box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
             border: 2px solid rgba(102, 126, 234, 0.1);
+            overflow: visible;
         }
 
         .chart {
@@ -373,7 +374,7 @@
 
         .timeline-track {
             position: relative;
-            height: 40px;
+            height: 35px;
             background: linear-gradient(135deg, #f8f9fa, #e9ecef);
             border-radius: 8px;
             overflow: hidden;
@@ -381,14 +382,14 @@
 
         .task-bar {
             position: absolute;
-            top: 8px;
-            height: 24px;
+            top: 6px;
+            height: 23px;
             border-radius: 12px;
             display: flex;
             align-items: center;
             justify-content: center;
             color: white;
-            font-size: 0.8rem;
+            font-size: 0.75rem;
             font-weight: 600;
             box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
             transition: all 0.3s ease;
@@ -526,11 +527,40 @@
 
         function saveChartAsPNG() {
             const chart = document.getElementById('ganttChart');
-            html2canvas(chart, { scale: 2 }).then(canvas => {
+            
+            // Temporarily adjust styles for better PNG output
+            const originalOverflow = document.body.style.overflow;
+            const originalHeight = document.body.style.height;
+            
+            document.body.style.overflow = 'visible';
+            document.body.style.height = 'auto';
+            
+            // Use higher scale and better options for crisp output
+            html2canvas(chart, { 
+                scale: 3,
+                useCORS: true,
+                allowTaint: true,
+                backgroundColor: '#ffffff',
+                width: chart.scrollWidth,
+                height: chart.scrollHeight,
+                scrollX: 0,
+                scrollY: 0
+            }).then(canvas => {
                 const link = document.createElement('a');
-                link.download = 'gantt_chart.png';
+                link.download = `gantt_chart_${new Date().toISOString().split('T')[0]}.png`;
                 link.href = canvas.toDataURL('image/png');
                 link.click();
+                
+                // Restore original styles
+                document.body.style.overflow = originalOverflow;
+                document.body.style.height = originalHeight;
+            }).catch(err => {
+                console.error('Error generating PNG:', err);
+                alert('Error generating PNG. Please try again.');
+                
+                // Restore original styles
+                document.body.style.overflow = originalOverflow;
+                document.body.style.height = originalHeight;
             });
         }
 

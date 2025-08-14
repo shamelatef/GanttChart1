@@ -648,6 +648,19 @@
                 padding: 4px 1px;
             }
         }
+        
+        /* Export adjustments: avoid gradient text turning into solid background in PNG */
+        .export-mode .chart-group-label {
+            background: none !important;
+            -webkit-background-clip: initial !important;
+            -webkit-text-fill-color: initial !important;
+            background-clip: initial !important;
+            color: #2c3e50 !important;
+        }
+        .export-mode .chart-group-header {
+            /* ensure header keeps subtle background without transparency issues */
+            background: linear-gradient(135deg, #f0f4ff, #e8f0fe) !important;
+        }
     </style>
 </head>
 <body>
@@ -1676,6 +1689,46 @@
             return (usePound ? '#' : '') + (r << 16 | g << 8 | b).toString(16).padStart(6, '0');
         }
 
+        // Export chart as PNG using html2canvas with export-specific style overrides
+        function saveChartAsPNG() {
+            try {
+                const exportRoot = document.querySelector('.container');
+                const target = document.querySelector('.chart-container') || document.getElementById('ganttChart');
+                if (!target) {
+                    showNotification('Nothing to export yet', 'error');
+                    return;
+                }
+                // Toggle export mode to neutralize unsupported CSS during rasterization
+                exportRoot.classList.add('export-mode');
+                // Allow UI to apply styles
+                requestAnimationFrame(() => {
+                    html2canvas(target, {
+                        backgroundColor: null, // keep container/background as-is
+                        scale: window.devicePixelRatio > 1 ? 2 : 2,
+                        useCORS: true,
+                        logging: false
+                    }).then(canvas => {
+                        const link = document.createElement('a');
+                        const ts = new Date().toISOString().replace(/[:.]/g, '-');
+                        link.download = `gantt-chart-${ts}.png`;
+                        link.href = canvas.toDataURL('image/png');
+                        link.click();
+                        showNotification('PNG exported', 'success');
+                    }).catch(err => {
+                        console.error('Export failed:', err);
+                        showNotification('PNG export failed', 'error');
+                    }).finally(() => {
+                        exportRoot.classList.remove('export-mode');
+                    });
+                });
+            } catch (e) {
+                console.error(e);
+                showNotification('PNG export failed', 'error');
+                const exportRoot = document.querySelector('.container');
+                if (exportRoot) exportRoot.classList.remove('export-mode');
+            }
+        }
+        
         // Add keyboard shortcuts
         document.addEventListener('keydown', function(event) {
             if (event.ctrlKey || event.metaKey) {

@@ -677,6 +677,7 @@
         <div class="header">
             <h1>Enhanced Gantt Chart with Groups</h1>
             <p>Create and manage your project timeline with grouped tasks - now with drag & drop!</p>
+            <div id="saveIndicator" style="margin-top: 10px; font-size: 0.9rem; font-weight: 600;">✓ All changes saved</div>
         </div>
 
         <div class="controls">
@@ -728,6 +729,142 @@
         let groupOrder = [];
         let draggedElement = null;
         let draggedType = null;
+        let hasUnsavedChanges = false;
+        let lastSavedData = null;
+
+        // Auto-save functionality
+        function markAsChanged() {
+            hasUnsavedChanges = true;
+            updateSaveIndicator();
+        }
+
+        function markAsSaved() {
+            hasUnsavedChanges = false;
+            lastSavedData = getCurrentDataHash();
+            updateSaveIndicator();
+        }
+
+        function getCurrentDataHash() {
+            return JSON.stringify({
+                tasks: tasks,
+                groups: groups,
+                groupStates: groupStates,
+                groupOrder: groupOrder
+            });
+        }
+
+        function updateSaveIndicator() {
+            const indicator = document.getElementById('saveIndicator');
+            if (hasUnsavedChanges) {
+                indicator.textContent = '● Unsaved changes';
+                indicator.style.color = '#e74c3c';
+            } else {
+                indicator.textContent = '✓ All changes saved';
+                indicator.style.color = '#27ae60';
+            }
+        }
+
+        // Auto-save every 30 seconds
+        function autoSave() {
+            if (hasUnsavedChanges && tasks.length > 0) {
+                try {
+                    const autoSaveData = {
+                        tasks: tasks,
+                        groups: groups,
+                        groupStates: groupStates,
+                        groupOrder: groupOrder,
+                        autoSaveTimestamp: new Date().toISOString(),
+                        version: '2.0'
+                    };
+                    
+                    // Use localStorage for auto-save only
+                    localStorage.setItem('gantt_autosave', JSON.stringify(autoSaveData));
+                    
+                    // Show brief notification
+                    showNotification('Auto-saved locally', 'success');
+                } catch (error) {
+                    console.error('Auto-save failed:', error);
+                }
+            }
+        }
+
+        // Check for auto-saved data on load
+        function checkForAutoSave() {
+            const autoSaveData = localStorage.getItem('gantt_autosave');
+            if (autoSaveData && tasks.length === 0) {
+                try {
+                    const data = JSON.parse(autoSaveData);
+                    if (data.tasks && data.tasks.length > 0) {
+                        const saveTime = new Date(data.autoSaveTimestamp).toLocaleString();
+                        if (confirm(`Found auto-saved data from ${saveTime}.\n\nWould you like to restore it?`)) {
+                            loadDataFromObject(data);
+                            showNotification('Auto-saved data restored', 'success');
+                        } else {
+                            localStorage.removeItem('gantt_autosave');
+                        }
+                    }
+                } catch (error) {
+                    console.error('Error loading auto-save:', error);
+                    localStorage.removeItem('gantt_autosave');
+                }
+            }
+        }
+
+        function showNotification(message, type = 'info') {
+            const notification = document.createElement('div');
+            notification.className = `notification notification-${type}`;
+            notification.textContent = message;
+            notification.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                padding: 12px 20px;
+                border-radius: 8px;
+                color: white;
+                font-weight: 600;
+                z-index: 1000;
+                transform: translateX(100%);
+                transition: transform 0.3s ease;
+                ${type === 'success' ? 'background: linear-gradient(45deg, #27ae60, #2ecc71);' : ''}
+                ${type === 'error' ? 'background: linear-gradient(45deg, #e74c3c, #c0392b);' : ''}
+                ${type === 'info' ? 'background: linear-gradient(45deg, #3498db, #2980b9);' : ''}
+            `;
+            
+            document.body.appendChild(notification);
+            
+            setTimeout(() => {
+                notification.style.transform = 'translateX(0)';
+            }, 100);
+            
+            setTimeout(() => {
+                notification.style.transform = 'translateX(100%)';
+                setTimeout(() => {
+                    document.body.removeChild(notification);
+                }, 300);
+            }, 3000);
+        }
+
+        // Prevent accidental page leaving
+        window.addEventListener('beforeunload', function(e) {
+            if (hasUnsavedChanges) {
+                const message = 'You have unsaved changes. Do you want to leave without saving?';
+                e.returnValue = message;
+                return message;
+            }
+        });
+
+        // Data management functions
+        function loadDataFromObject(data) {
+            tasks = data.tasks || [];
+            groups = data.groups || {};
+            groupStates = data.groupStates || {};
+            groupOrder = data.groupOrder || Object.keys(groups);
+            
+            updateGroupsList();
+            updateChart();
+            updateGroupSuggestions();
+            markAsSaved();
+        }
 
         function saveChartAsPNG() {
             const chart = document.getElementById('ganttChart');
@@ -787,6 +924,10 @@
             link.download = `gantt_data_${new Date().toISOString().split('T')[0]}.json`;
             link.href = URL.createObjectURL(blob);
             link.click();
+            
+            markAsSaved();
+            localStorage.removeItem('gantt_autosave'); // Clear auto-save after manual save
+            showNotification('File saved successfully', 'success');
         }
 
         function loadFromFile(input) {
@@ -799,22 +940,15 @@
                     const data = JSON.parse(e.target.result);
                     
                     if (data.version && data.tasks && data.groups) {
-                        tasks = data.tasks || [];
-                        groups = data.groups || {};
-                        groupStates = data.groupStates || {};
-                        groupOrder = data.groupOrder || Object.keys(groups);
-                        
-                        updateGroupsList();
-                        updateChart();
-                        updateGroupSuggestions();
-                        
-                        alert('Data loaded successfully!');
+                        loadDataFromObject(data);
+                        localStorage.removeItem('gantt_autosave'); // Clear auto-save after loading file
+                        showNotification('Data loaded successfully', 'success');
                     } else {
-                        alert('Invalid file format. Please select a valid Gantt chart data file.');
+                        showNotification('Invalid file format', 'error');
                     }
                 } catch (error) {
                     console.error('Error loading file:', error);
-                    alert('Error loading file. Please check the file format.');
+                    showNotification('Error loading file', 'error');
                 }
             };
             reader.readAsText(file);
@@ -825,10 +959,17 @@
 
         window.onload = function() {
             setTodayDate();
+            checkForAutoSave(); // Check for auto-saved data first
             updateGroupsList();
             updateChart();
             updateGroupSuggestions();
             setupDragAndDrop();
+            
+            // Start auto-save timer
+            setInterval(autoSave, 30000); // Auto-save every 30 seconds
+            
+            // Initialize save indicator
+            updateSaveIndicator();
         };
 
         function setTodayDate() {
@@ -854,12 +995,12 @@
             const taskColor = document.getElementById('taskColor').value;
 
             if (!taskName || !startDate || !endDate) {
-                alert('Please fill in task name, start date, and end date');
+                showNotification('Please fill in task name, start date, and end date', 'error');
                 return;
             }
 
             if (new Date(startDate) > new Date(endDate)) {
-                alert('Start date cannot be after end date');
+                showNotification('Start date cannot be after end date', 'error');
                 return;
             }
 
@@ -883,15 +1024,21 @@
                 groupOrder.push(groupName);
             }
 
+            markAsChanged();
             updateGroupsList();
             updateChart();
             updateGroupSuggestions();
             clearForm();
+            showNotification('Task added successfully', 'success');
         }
 
         function deleteTask(taskId) {
             const task = tasks.find(t => t.id === taskId);
             if (!task) return;
+
+            if (!confirm(`Are you sure you want to delete "${task.name}"?`)) {
+                return;
+            }
 
             tasks = tasks.filter(t => t.id !== taskId);
 
@@ -902,9 +1049,11 @@
                 groupOrder = groupOrder.filter(g => g !== task.group);
             }
 
+            markAsChanged();
             updateGroupsList();
             updateChart();
             updateGroupSuggestions();
+            showNotification('Task deleted', 'success');
         }
 
         function updateTaskField(taskId, field, value) {
@@ -912,11 +1061,11 @@
             if (!task) return;
 
             if (field === 'startDate' && new Date(value) > new Date(task.endDate)) {
-                alert('Start date cannot be after end date');
+                showNotification('Start date cannot be after end date', 'error');
                 return;
             }
             if (field === 'endDate' && new Date(value) < new Date(task.startDate)) {
-                alert('End date cannot be before start date');
+                showNotification('End date cannot be before start date', 'error');
                 return;
             }
 
@@ -944,6 +1093,7 @@
                 }
             }
 
+            markAsChanged();
             updateGroupsList();
             updateChart();
             updateGroupSuggestions();
@@ -980,6 +1130,7 @@
                 groups[groupName].color = value;
             }
             
+            markAsChanged();
             updateGroupsList();
             updateChart();
             updateGroupSuggestions();
@@ -987,6 +1138,7 @@
 
         function toggleGroup(groupName) {
             groupStates[groupName] = !groupStates[groupName];
+            markAsChanged();
             updateGroupsList();
             updateChart();
         }
@@ -999,6 +1151,7 @@
                 groupStates[groupName] = newState;
             });
 
+            markAsChanged();
             updateGroupsList();
             updateChart();
         }
@@ -1254,6 +1407,7 @@
                     const targetTaskIndex = tasks.findIndex(t => t.id === targetTaskId);
                     tasks.splice(targetTaskIndex, 0, movedTask);
                     
+                    markAsChanged();
                     updateGroupsList();
                     updateChart();
                 }
@@ -1267,6 +1421,7 @@
             if (draggedIndex !== -1 && targetIndex !== -1) {
                 groupOrder.splice(draggedIndex, 1);
                 groupOrder.splice(targetIndex, 0, draggedGroupName);
+                markAsChanged();
                 updateGroupsList();
                 updateChart();
             }

@@ -5,7 +5,7 @@
 
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dynamic Gantt Chart</title>
+    <title>Dynamic Gantt Chart with Groups</title>
     <style>
         * {
             margin: 0;
@@ -140,11 +140,17 @@
         .btn-primary {
             background: linear-gradient(45deg, #667eea, #764ba2);
             color: white;
-            width: 100%;
+            flex: 1;
         }
 
         .btn-secondary {
             background: linear-gradient(45deg, #f093fb, #f5576c);
+            color: white;
+            flex: 1;
+        }
+
+        .btn-tertiary {
+            background: linear-gradient(45deg, #4facfe, #00f2fe);
             color: white;
             flex: 1;
         }
@@ -154,33 +160,87 @@
             box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
         }
 
-        .tasks-list {
-            margin-bottom: 30px;
-            max-height: 300px;
-            overflow-y: auto;
+        .groups-list {
+            margin-bottom: 20px;
+        }
+
+        .group-item {
+            margin-bottom: 15px;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+
+        .group-header {
+            display: flex;
+            align-items: center;
+            padding: 15px;
+            background: linear-gradient(135deg, #f8f9ff, #e8f4fd);
+            border-left: 5px solid #667eea;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .group-header:hover {
+            background: linear-gradient(135deg, #e8f4fd, #d8ecfc);
+        }
+
+        .group-toggle {
+            font-size: 1.2rem;
+            margin-right: 10px;
+            color: #667eea;
+            font-weight: bold;
+            transition: transform 0.3s ease;
+        }
+
+        .group-toggle.collapsed {
+            transform: rotate(-90deg);
+        }
+
+        .group-name {
+            flex: 1;
+            font-weight: 600;
+            color: #2c3e50;
+            font-size: 1.1rem;
+        }
+
+        .group-stats {
+            color: #7f8c8d;
+            font-size: 0.9rem;
+            margin-left: 15px;
+        }
+
+        .group-tasks {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease;
+        }
+
+        .group-tasks.expanded {
+            max-height: 1000px;
         }
 
         .task-item {
             display: flex;
             align-items: center;
             padding: 15px;
-            margin-bottom: 10px;
-            background: white;
-            border-radius: 10px;
-            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+            margin: 0 15px 10px 15px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border-left: 4px solid;
             transition: all 0.3s ease;
-            border-left: 5px solid;
         }
 
         .task-item:hover {
             transform: translateX(5px);
-            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.1);
         }
 
         .task-info {
             flex: 1;
             display: grid;
-            grid-template-columns: 2fr 1fr 1fr;
+            grid-template-columns: 2fr 1fr 1fr 80px;
             gap: 15px;
             align-items: center;
         }
@@ -188,12 +248,23 @@
         .task-name {
             font-weight: 600;
             color: #2c3e50;
-            font-size: 1.1rem;
         }
 
         .task-dates {
             color: #7f8c8d;
             font-size: 0.9rem;
+        }
+
+        .group-selector {
+            position: relative;
+        }
+
+        .group-input {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            background: white;
         }
 
         .delete-btn {
@@ -229,7 +300,7 @@
 
         .chart-header {
             display: grid;
-            grid-template-columns: 200px 1fr;
+            grid-template-columns: 250px 1fr;
             margin-bottom: 20px;
             align-items: start;
         }
@@ -306,74 +377,49 @@
             position: relative;
         }
 
-        .chart-row {
+        .chart-group {
+            margin-bottom: 10px;
+        }
+
+        .chart-group-header {
             display: grid;
-            grid-template-columns: 200px 1fr;
+            grid-template-columns: 250px 1fr;
             align-items: center;
-            margin-bottom: 15px;
-            min-height: 40px;
+            margin-bottom: 5px;
+            background: linear-gradient(135deg, #f0f4ff, #e8f0fe);
+            border-radius: 8px;
+            cursor: pointer;
             transition: all 0.3s ease;
-            position: relative;
         }
 
-        /* Drag and Drop Styles */
-        .chart-row.draggable {
-            cursor: move;
+        .chart-group-header:hover {
+            background: linear-gradient(135deg, #e8f0fe, #d8e8fd);
         }
 
-        .chart-row.dragging {
-            opacity: 0.5;
-            transform: rotate(2deg);
-            z-index: 1000;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
-        }
-
-        .chart-row.drag-over {
-            border-top: 3px solid #667eea;
-            transform: translateY(3px);
-        }
-
-        .drag-handle {
-            position: absolute;
-            left: -15px;
-            top: 50%;
-            transform: translateY(-50%);
-            width: 10px;
-            height: 30px;
-            background: linear-gradient(45deg, #667eea, #764ba2);
-            border-radius: 5px;
-            cursor: move;
-            opacity: 0;
-            transition: all 0.3s ease;
+        .chart-group-label {
+            padding: 12px 15px;
+            font-weight: 700;
+            color: #2c3e50;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
             display: flex;
             align-items: center;
-            justify-content: center;
         }
 
-        .drag-handle:before {
-            content: '⋮';
-            color: white;
-            font-size: 12px;
-            font-weight: bold;
+        .chart-group-toggle {
+            font-size: 1rem;
+            margin-right: 8px;
+            transition: transform 0.3s ease;
+            color: #667eea;
         }
 
-        .chart-row:hover .drag-handle {
-            opacity: 1;
-            left: -20px;
+        .chart-group-toggle.collapsed {
+            transform: rotate(-90deg);
         }
 
-        .task-label {
-            padding: 10px;
-            font-weight: 600;
-            color: #2c3e50;
-            background: linear-gradient(135deg, #f8f9ff, #e8f4fd);
-            border-radius: 8px;
-            margin-right: 10px;
-            border-left: 4px solid;
-            transition: all 0.3s ease;
-        }
-
-        .timeline-track {
+        .chart-group-timeline {
             position: relative;
             height: 35px;
             background: linear-gradient(135deg, #f8f9fa, #e9ecef);
@@ -381,25 +427,75 @@
             overflow: hidden;
         }
 
+        .chart-group-tasks {
+            overflow: hidden;
+            transition: max-height 0.3s ease;
+        }
+
+        .chart-group-tasks.collapsed {
+            max-height: 0;
+        }
+
+        .chart-row {
+            display: grid;
+            grid-template-columns: 250px 1fr;
+            align-items: center;
+            margin-bottom: 8px;
+            min-height: 35px;
+            transition: all 0.3s ease;
+            position: relative;
+        }
+
+        .task-label {
+            padding: 8px 12px;
+            font-weight: 500;
+            color: #2c3e50;
+            background: linear-gradient(135deg, #f8f9ff, #e8f4fd);
+            border-radius: 6px;
+            margin-right: 10px;
+            margin-left: 20px;
+            border-left: 3px solid;
+            transition: all 0.3s ease;
+            font-size: 0.9rem;
+        }
+
+        .timeline-track {
+            position: relative;
+            height: 25px;
+            background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+            border-radius: 6px;
+            overflow: hidden;
+        }
+
         .task-bar {
             position: absolute;
-            top: 6px;
-            height: 23px;
-            border-radius: 12px;
+            top: 3px;
+            height: 19px;
+            border-radius: 10px;
             display: flex;
             align-items: center;
             justify-content: center;
             color: white;
-            font-size: 0.75rem;
+            font-size: 0.7rem;
             font-weight: 600;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
             transition: all 0.3s ease;
             cursor: pointer;
         }
 
         .task-bar:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+            transform: translateY(-1px);
+            box-shadow: 0 3px 8px rgba(0, 0, 0, 0.3);
+        }
+
+        .group-bar {
+            position: absolute;
+            top: 6px;
+            height: 23px;
+            border-radius: 12px;
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            opacity: 0.8;
+            box-shadow: 0 3px 10px rgba(102, 126, 234, 0.3);
         }
 
         .today-line {
@@ -432,15 +528,6 @@
             font-style: italic;
         }
 
-        .drag-instruction {
-            position: absolute;
-            top: -25px;
-            right: 0;
-            color: #7f8c8d;
-            font-size: 0.9rem;
-            font-style: italic;
-        }
-
         @media (max-width: 768px) {
             .container {
                 padding: 20px;
@@ -462,21 +549,21 @@
             }
 
             .chart-row {
-                grid-template-columns: 150px 1fr;
+                grid-template-columns: 180px 1fr;
+            }
+
+            .chart-header {
+                grid-template-columns: 180px 1fr;
             }
 
             .task-label {
-                font-size: 0.9rem;
-                padding: 8px;
+                font-size: 0.8rem;
+                padding: 6px 10px;
             }
 
             .month-cell {
                 font-size: 0.65rem;
                 padding: 4px 1px;
-            }
-
-            .drag-handle {
-                display: none;
             }
         }
     </style>
@@ -484,8 +571,8 @@
 <body>
     <div class="container">
         <div class="header">
-            <h1>Dynamic Gantt Chart</h1>
-            <p>Create and manage your project timeline with an interactive Gantt chart</p>
+            <h1>Dynamic Gantt Chart with Groups</h1>
+            <p>Create and manage your project timeline with grouped tasks</p>
         </div>
 
         <div class="controls">
@@ -494,6 +581,11 @@
             <div class="form-group">
                 <label for="taskName">Task Name</label>
                 <input type="text" id="taskName" placeholder="Enter task name">
+            </div>
+            <div class="form-group">
+                <label for="groupName">Group</label>
+                <input type="text" id="groupName" placeholder="Enter group name" list="groupSuggestions">
+                <datalist id="groupSuggestions"></datalist>
             </div>
             <div class="form-group">
                 <label for="startDate">Start Date</label>
@@ -509,10 +601,11 @@
             </div>
             <div class="button-group">
                 <button class="btn btn-primary" onclick="addTask()">Add Task</button>
+                <button class="btn btn-tertiary" onclick="toggleAllGroups()">Toggle All</button>
             </div>
         </div>
 
-        <div class="tasks-list" id="tasksList"></div>
+        <div class="groups-list" id="groupsList"></div>
 
         <div class="chart-container">
             <div class="chart" id="ganttChart">
@@ -523,20 +616,18 @@
 
     <script>
         let tasks = [];
-        let draggedTaskId = null;
-        let dragOverIndex = -1;
+        let groups = {};
+        let groupStates = {}; // Track expanded/collapsed state
 
         function saveChartAsPNG() {
             const chart = document.getElementById('ganttChart');
             
-            // Temporarily adjust styles for better PNG output
             const originalOverflow = document.body.style.overflow;
             const originalHeight = document.body.style.height;
             
             document.body.style.overflow = 'visible';
             document.body.style.height = 'auto';
             
-            // Use higher scale and better options for crisp output
             html2canvas(chart, { 
                 scale: 3,
                 useCORS: true,
@@ -552,36 +643,45 @@
                 link.href = canvas.toDataURL('image/png');
                 link.click();
                 
-                // Restore original styles
                 document.body.style.overflow = originalOverflow;
                 document.body.style.height = originalHeight;
             }).catch(err => {
                 console.error('Error generating PNG:', err);
                 alert('Error generating PNG. Please try again.');
                 
-                // Restore original styles
                 document.body.style.overflow = originalOverflow;
                 document.body.style.height = originalHeight;
             });
         }
 
-        // Load tasks from localStorage on page load
         window.onload = function() {
-            loadTasks();
+            loadData();
             setTodayDate();
-            updateTasksList();
+            updateGroupsList();
             updateChart();
+            updateGroupSuggestions();
         };
 
-        function loadTasks() {
+        function loadData() {
             const savedTasks = localStorage.getItem('ganttTasks');
+            const savedGroups = localStorage.getItem('ganttGroups');
+            const savedGroupStates = localStorage.getItem('ganttGroupStates');
+            
             if (savedTasks) {
                 tasks = JSON.parse(savedTasks);
             }
+            if (savedGroups) {
+                groups = JSON.parse(savedGroups);
+            }
+            if (savedGroupStates) {
+                groupStates = JSON.parse(savedGroupStates);
+            }
         }
 
-        function saveTasks() {
+        function saveData() {
             localStorage.setItem('ganttTasks', JSON.stringify(tasks));
+            localStorage.setItem('ganttGroups', JSON.stringify(groups));
+            localStorage.setItem('ganttGroupStates', JSON.stringify(groupStates));
         }
 
         function setTodayDate() {
@@ -599,16 +699,15 @@
             }
         }
 
-        let editingTaskId = null;
-
         function addTask() {
             const taskName = document.getElementById('taskName').value.trim();
+            const groupName = document.getElementById('groupName').value.trim() || 'Ungrouped';
             const startDate = document.getElementById('startDate').value;
             const endDate = document.getElementById('endDate').value;
             const taskColor = document.getElementById('taskColor').value;
 
             if (!taskName || !startDate || !endDate) {
-                alert('Please fill in all fields');
+                alert('Please fill in task name, start date, and end date');
                 return;
             }
 
@@ -617,100 +716,56 @@
                 return;
             }
 
-            if (editingTaskId) {
-                // Update existing task
-                const task = tasks.find(t => t.id === editingTaskId);
-                task.name = taskName;
-                task.startDate = startDate;
-                task.endDate = endDate;
-                task.color = taskColor;
-                editingTaskId = null;
-                document.querySelector('.btn-primary').textContent = 'Add Task';
-            } else {
-                // Add new task with order property
-                const task = {
-                    id: Date.now(),
-                    name: taskName,
-                    startDate: startDate,
-                    endDate: endDate,
-                    color: taskColor,
-                    order: tasks.length
+            const task = {
+                id: Date.now(),
+                name: taskName,
+                group: groupName,
+                startDate: startDate,
+                endDate: endDate,
+                color: taskColor
+            };
+
+            tasks.push(task);
+
+            // Initialize group if it doesn't exist
+            if (!groups[groupName]) {
+                groups[groupName] = {
+                    name: groupName,
+                    color: taskColor
                 };
-                tasks.push(task);
+                groupStates[groupName] = true; // Expanded by default
             }
 
-            saveTasks();
-            updateTasksList();
+            saveData();
+            updateGroupsList();
             updateChart();
+            updateGroupSuggestions();
             clearForm();
         }
 
         function deleteTask(taskId) {
-            tasks = tasks.filter(task => task.id !== taskId);
-            // Update order after deletion
-            tasks.forEach((task, index) => {
-                task.order = index;
-            });
-            saveTasks();
-            updateTasksList();
+            const task = tasks.find(t => t.id === taskId);
+            if (!task) return;
+
+            tasks = tasks.filter(t => t.id !== taskId);
+
+            // Check if group is now empty
+            const groupTasks = tasks.filter(t => t.group === task.group);
+            if (groupTasks.length === 0) {
+                delete groups[task.group];
+                delete groupStates[task.group];
+            }
+
+            saveData();
+            updateGroupsList();
             updateChart();
-        }
-
-        function clearAllTasks() {
-            if (tasks.length === 0) {
-                alert('No tasks to clear');
-                return;
-            }
-            
-            if (confirm('Are you sure you want to clear all tasks?')) {
-                tasks = [];
-                localStorage.removeItem('ganttTasks');
-                updateTasksList();
-                updateChart();
-            }
-        }
-
-        function clearForm() {
-            document.getElementById('taskName').value = '';
-            setTodayDate();
-            document.getElementById('taskColor').value = '#667eea';
-            editingTaskId = null;
-            document.querySelector('.btn-primary').textContent = 'Add Task';
-        }
-
-        function updateTasksList() {
-            const tasksList = document.getElementById('tasksList');
-            
-            if (tasks.length === 0) {
-                tasksList.innerHTML = '';
-                return;
-            }
-
-            // Sort tasks by order
-            const sortedTasks = [...tasks].sort((a, b) => (a.order || 0) - (b.order || 0));
-
-            tasksList.innerHTML = sortedTasks.map(task => `
-                <div class="task-item" style="border-left-color: ${task.color}">
-                    <div class="task-info">
-                        <input type="text" value="${task.name}" 
-                               onchange="updateTaskField(${task.id}, 'name', this.value)" />
-                        <input type="date" value="${task.startDate}" 
-                               onchange="updateTaskField(${task.id}, 'startDate', this.value)" />
-                        <input type="date" value="${task.endDate}" 
-                               onchange="updateTaskField(${task.id}, 'endDate', this.value)" />
-                        <input type="color" value="${task.color}" 
-                               onchange="updateTaskField(${task.id}, 'color', this.value)" />
-                    </div>
-                    <button class="delete-btn" onclick="deleteTask(${task.id})">Delete</button>
-                </div>
-            `).join('');
+            updateGroupSuggestions();
         }
 
         function updateTaskField(taskId, field, value) {
             const task = tasks.find(t => t.id === taskId);
             if (!task) return;
 
-            // Validation: dates
             if (field === 'startDate' && new Date(value) > new Date(task.endDate)) {
                 alert('Start date cannot be after end date');
                 return;
@@ -720,10 +775,119 @@
                 return;
             }
 
+            const oldGroup = task.group;
             task[field] = value;
-            saveTasks();
-            updateTasksList();
+
+            // Handle group change
+            if (field === 'group') {
+                const newGroup = value.trim() || 'Ungrouped';
+                task.group = newGroup;
+
+                // Initialize new group if needed
+                if (!groups[newGroup]) {
+                    groups[newGroup] = {
+                        name: newGroup,
+                        color: task.color
+                    };
+                    groupStates[newGroup] = true;
+                }
+
+                // Check if old group is now empty
+                const oldGroupTasks = tasks.filter(t => t.group === oldGroup);
+                if (oldGroupTasks.length === 0) {
+                    delete groups[oldGroup];
+                    delete groupStates[oldGroup];
+                }
+            }
+
+            saveData();
+            updateGroupsList();
             updateChart();
+            updateGroupSuggestions();
+        }
+
+        function toggleGroup(groupName) {
+            groupStates[groupName] = !groupStates[groupName];
+            saveData();
+            updateGroupsList();
+            updateChart();
+        }
+
+        function toggleAllGroups() {
+            const allExpanded = Object.values(groupStates).every(state => state);
+            const newState = !allExpanded;
+            
+            Object.keys(groupStates).forEach(groupName => {
+                groupStates[groupName] = newState;
+            });
+
+            saveData();
+            updateGroupsList();
+            updateChart();
+        }
+
+        function clearForm() {
+            document.getElementById('taskName').value = '';
+            document.getElementById('groupName').value = '';
+            setTodayDate();
+            document.getElementById('taskColor').value = '#667eea';
+        }
+
+        function updateGroupSuggestions() {
+            const datalist = document.getElementById('groupSuggestions');
+            datalist.innerHTML = Object.keys(groups).map(groupName => 
+                `<option value="${groupName}"></option>`
+            ).join('');
+        }
+
+        function updateGroupsList() {
+            const groupsList = document.getElementById('groupsList');
+            
+            if (tasks.length === 0) {
+                groupsList.innerHTML = '';
+                return;
+            }
+
+            const groupNames = Object.keys(groups).sort();
+            
+            groupsList.innerHTML = groupNames.map(groupName => {
+                const groupTasks = tasks.filter(t => t.group === groupName);
+                const isExpanded = groupStates[groupName];
+                
+                return `
+                    <div class="group-item">
+                        <div class="group-header" onclick="toggleGroup('${groupName}')">
+                            <span class="group-toggle ${isExpanded ? '' : 'collapsed'}">▼</span>
+                            <span class="group-name">${groupName}</span>
+                            <span class="group-stats">${groupTasks.length} task${groupTasks.length !== 1 ? 's' : ''}</span>
+                        </div>
+                        <div class="group-tasks ${isExpanded ? 'expanded' : ''}">
+                            ${groupTasks.map(task => `
+                                <div class="task-item" style="border-left-color: ${task.color}">
+                                    <div class="task-info">
+                                        <input type="text" value="${task.name}" 
+                                               onchange="updateTaskField(${task.id}, 'name', this.value)" 
+                                               class="group-input" />
+                                        <input type="text" value="${task.group}" 
+                                               onchange="updateTaskField(${task.id}, 'group', this.value)" 
+                                               class="group-input" 
+                                               list="groupSuggestions" />
+                                        <input type="date" value="${task.startDate}" 
+                                               onchange="updateTaskField(${task.id}, 'startDate', this.value)" 
+                                               class="group-input" />
+                                        <input type="date" value="${task.endDate}" 
+                                               onchange="updateTaskField(${task.id}, 'endDate', this.value)" 
+                                               class="group-input" />
+                                        <input type="color" value="${task.color}" 
+                                               onchange="updateTaskField(${task.id}, 'color', this.value)" />
+                                    </div>
+                                    <button class="delete-btn" onclick="deleteTask(${task.id})">Delete</button>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
+            }).join('');
         }
 
         function formatDate(dateString) {
@@ -735,77 +899,6 @@
             });
         }
 
-        // Drag and Drop Functions
-        function handleDragStart(e, taskId) {
-            draggedTaskId = taskId;
-            e.target.classList.add('dragging');
-            e.dataTransfer.effectAllowed = 'move';
-            e.dataTransfer.setData('text/html', e.target.innerHTML);
-        }
-
-        function handleDragEnd(e) {
-            e.target.classList.remove('dragging');
-            draggedTaskId = null;
-            dragOverIndex = -1;
-            // Remove all drag-over classes
-            document.querySelectorAll('.chart-row').forEach(row => {
-                row.classList.remove('drag-over');
-            });
-        }
-
-        function handleDragOver(e) {
-            if (e.preventDefault) {
-                e.preventDefault();
-            }
-            e.dataTransfer.dropEffect = 'move';
-            return false;
-        }
-
-        function handleDragEnter(e, index) {
-            e.target.closest('.chart-row').classList.add('drag-over');
-            dragOverIndex = index;
-        }
-
-        function handleDragLeave(e) {
-            e.target.closest('.chart-row').classList.remove('drag-over');
-        }
-
-        function handleDrop(e, dropIndex) {
-            if (e.stopPropagation) {
-                e.stopPropagation();
-            }
-
-            if (draggedTaskId && dropIndex !== undefined) {
-                const draggedTask = tasks.find(t => t.id === draggedTaskId);
-                const draggedIndex = tasks.findIndex(t => t.id === draggedTaskId);
-
-                if (draggedTask && draggedIndex !== dropIndex) {
-                    // Remove the dragged task from its current position
-                    tasks.splice(draggedIndex, 1);
-                    
-                    // Insert it at the new position
-                    const adjustedDropIndex = draggedIndex < dropIndex ? dropIndex - 1 : dropIndex;
-                    tasks.splice(adjustedDropIndex, 0, draggedTask);
-                    
-                    // Update order property for all tasks
-                    tasks.forEach((task, index) => {
-                        task.order = index;
-                    });
-
-                    saveTasks();
-                    updateTasksList();
-                    updateChart();
-                }
-            }
-
-            // Clean up
-            document.querySelectorAll('.chart-row').forEach(row => {
-                row.classList.remove('drag-over');
-            });
-
-            return false;
-        }
-
         function updateChart() {
             const chartContainer = document.getElementById('ganttChart');
             
@@ -814,23 +907,15 @@
                 return;
             }
 
-            // Sort tasks by order
-            const sortedTasks = [...tasks].sort((a, b) => (a.order || 0) - (b.order || 0));
-
             // Calculate date range
-            const allDates = sortedTasks.flatMap(task => [new Date(task.startDate), new Date(task.endDate)]);
+            const allDates = tasks.flatMap(task => [new Date(task.startDate), new Date(task.endDate)]);
             const minDate = new Date(Math.min(...allDates));
             const maxDate = new Date(Math.max(...allDates));
             
-            // Get month range
             const months = getMonthRange(minDate, maxDate);
-
-            // Group months by quarters
             const quarterGroups = groupMonthsByQuarters(months);
 
-            // Create timeline header with quarters and months
             const quartersHTML = quarterGroups.map(quarter => {
-                const quarterWidth = (quarter.months.length / months.length) * 100;
                 return `
                     <div class="timeline-quarter" style="flex: ${quarter.months.length};">
                         <div class="quarter-year">${quarter.year}</div>
@@ -845,16 +930,22 @@
                 </div>
             `).join('');
 
-            // Calculate today's position
             const today = new Date();
             const todayPosition = calculateTodayPosition(today, months);
 
+            // Calculate total height for today line
+            let totalRows = 0;
+            Object.keys(groups).forEach(groupName => {
+                totalRows++; // Group header
+                if (groupStates[groupName]) {
+                    const groupTasks = tasks.filter(t => t.group === groupName);
+                    totalRows += groupTasks.length;
+                }
+            });
+
             const chartHTML = `
                 <div class="chart-header">
-                    <div class="chart-title">
-                        Tasks
-                        <div class="drag-instruction">Drag tasks to reorder</div>
-                    </div>
+                    <div class="chart-title">Tasks & Groups</div>
                     <div class="timeline-container">
                         <div class="timeline-quarters">${quartersHTML}</div>
                         <div class="timeline-months">${monthsHTML}</div>
@@ -862,15 +953,165 @@
                 </div>
                 <div class="chart-body">
                     ${todayPosition >= 0 ? `
-                        <div class="today-line" style="left: ${200 + todayPosition}px; height: ${sortedTasks.length * 43 + 20}px;">
+                        <div class="today-line" style="left: ${250 + todayPosition}px; height: ${totalRows * 45 + 20}px;">
                             <div class="today-marker"></div>
                         </div>
                     ` : ''}
-                    ${sortedTasks.map((task, index) => createTaskRow(task, months, index)).join('')}
+                    ${createGroupChartHTML(months)}
                 </div>
             `;
 
             chartContainer.innerHTML = chartHTML;
+        }
+
+        function createGroupChartHTML(months) {
+            const groupNames = Object.keys(groups).sort();
+            
+            return groupNames.map(groupName => {
+                const groupTasks = tasks.filter(t => t.group === groupName);
+                const isExpanded = groupStates[groupName];
+                
+                // Calculate group timeline (earliest start to latest end)
+                let groupStart = null;
+                let groupEnd = null;
+                
+                if (groupTasks.length > 0) {
+                    const groupDates = groupTasks.flatMap(task => [new Date(task.startDate), new Date(task.endDate)]);
+                    groupStart = new Date(Math.min(...groupDates));
+                    groupEnd = new Date(Math.max(...groupDates));
+                }
+
+                const groupBarHTML = groupStart && groupEnd ? 
+                    createGroupBar(groupStart, groupEnd, months, groupName) : '';
+
+                const tasksHTML = isExpanded ? groupTasks.map(task => 
+                    createTaskRow(task, months)
+                ).join('') : '';
+
+                return `
+                    <div class="chart-group">
+                        <div class="chart-group-header" onclick="toggleGroup('${groupName}')">
+                            <div class="chart-group-label">
+                                <span class="chart-group-toggle ${isExpanded ? '' : 'collapsed'}">▼</span>
+                                ${groupName} (${groupTasks.length})
+                            </div>
+                            <div class="chart-group-timeline">
+                                ${groupBarHTML}
+                            </div>
+                        </div>
+                        <div class="chart-group-tasks ${isExpanded ? '' : 'collapsed'}">
+                            ${tasksHTML}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function createGroupBar(startDate, endDate, months, groupName) {
+            const startMonth = {
+                year: startDate.getFullYear(),
+                month: startDate.getMonth() + 1
+            };
+            const endMonth = {
+                year: endDate.getFullYear(),
+                month: endDate.getMonth() + 1
+            };
+
+            const startIndex = months.findIndex(m => 
+                m.year === startMonth.year && m.month === startMonth.month
+            );
+            const endIndex = months.findIndex(m => 
+                m.year === endMonth.year && m.month === endMonth.month
+            );
+            
+            if (startIndex === -1 || endIndex === -1) return '';
+            
+            const totalMonths = months.length;
+            const monthWidth = 100 / totalMonths;
+            
+            // Calculate precise position within months
+            const startMonthDate = new Date(startMonth.year, startMonth.month - 1, 1);
+            const startMonthEnd = new Date(startMonth.year, startMonth.month, 0);
+            const startMonthDays = startMonthEnd.getDate();
+            const daysFromMonthStart = startDate.getDate() - 1;
+            const startOffset = (daysFromMonthStart / startMonthDays) * monthWidth;
+            
+            const endMonthDate = new Date(endMonth.year, endMonth.month - 1, 1);
+            const endMonthEnd = new Date(endMonth.year, endMonth.month, 0);
+            const endMonthDays = endMonthEnd.getDate();
+            const daysToMonthEnd = endDate.getDate();
+            const endOffset = (daysToMonthEnd / endMonthDays) * monthWidth;
+            
+            const left = (startIndex * monthWidth) + startOffset;
+            const width = ((endIndex - startIndex) * monthWidth) + endOffset - startOffset;
+            
+            const duration = Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24)) + 1;
+
+            return `
+                <div class="group-bar" 
+                     style="left: ${left}%; width: ${width}%;"
+                     title="${groupName}: ${formatDate(startDate)} - ${formatDate(endDate)} (${duration} day${duration !== 1 ? 's' : ''})">
+                </div>
+            `;
+        }
+
+        function createTaskRow(task, months) {
+            const taskStart = new Date(task.startDate);
+            const taskEnd = new Date(task.endDate);
+            
+            const startMonth = {
+                year: taskStart.getFullYear(),
+                month: taskStart.getMonth() + 1
+            };
+            const endMonth = {
+                year: taskEnd.getFullYear(),
+                month: taskEnd.getMonth() + 1
+            };
+
+            const startIndex = months.findIndex(m => 
+                m.year === startMonth.year && m.month === startMonth.month
+            );
+            const endIndex = months.findIndex(m => 
+                m.year === endMonth.year && m.month === endMonth.month
+            );
+            
+            if (startIndex === -1 || endIndex === -1) return '';
+            
+            const totalMonths = months.length;
+            const monthWidth = 100 / totalMonths;
+            
+            // Calculate precise position within months
+            const startMonthDate = new Date(startMonth.year, startMonth.month - 1, 1);
+            const startMonthEnd = new Date(startMonth.year, startMonth.month, 0);
+            const startMonthDays = startMonthEnd.getDate();
+            const daysFromMonthStart = taskStart.getDate() - 1;
+            const startOffset = (daysFromMonthStart / startMonthDays) * monthWidth;
+            
+            const endMonthDate = new Date(endMonth.year, endMonth.month - 1, 1);
+            const endMonthEnd = new Date(endMonth.year, endMonth.month, 0);
+            const endMonthDays = endMonthEnd.getDate();
+            const daysToMonthEnd = taskEnd.getDate();
+            const endOffset = (daysToMonthEnd / endMonthDays) * monthWidth;
+            
+            const left = (startIndex * monthWidth) + startOffset;
+            const width = ((endIndex - startIndex) * monthWidth) + endOffset - startOffset;
+            
+            const duration = Math.ceil((taskEnd - taskStart) / (1000 * 60 * 60 * 24)) + 1;
+
+            return `
+                <div class="chart-row">
+                    <div class="task-label" style="border-left-color: ${task.color}">
+                        ${task.name}
+                    </div>
+                    <div class="timeline-track">
+                        <div class="task-bar" 
+                             style="left: ${left}%; width: ${width}%; background: linear-gradient(45deg, ${task.color}, ${adjustBrightness(task.color, -20)});"
+                             title="${task.name}: ${formatDate(task.startDate)} - ${formatDate(task.endDate)} (${duration} day${duration !== 1 ? 's' : ''})">
+                            ${width > 15 ? task.name : ''}
+                        </div>
+                    </div>
+                </div>
+            `;
         }
 
         function getMonthRange(startDate, endDate) {
@@ -937,80 +1178,11 @@
             const monthDays = monthEnd.getDate();
             const dayOfMonth = today.getDate();
 
-            const chartWidth = document.getElementById('ganttChart').offsetWidth - 220;
+            const chartWidth = document.getElementById('ganttChart').offsetWidth - 270;
             const monthWidth = chartWidth / months.length;
             const dayPosition = (dayOfMonth / monthDays) * monthWidth;
 
             return (monthIndex * monthWidth) + dayPosition;
-        }
-
-        function createTaskRow(task, months, index) {
-            const taskStart = new Date(task.startDate);
-            const taskEnd = new Date(task.endDate);
-            
-            // Find start and end month indices
-            const startMonth = {
-                year: taskStart.getFullYear(),
-                month: taskStart.getMonth() + 1
-            };
-            const endMonth = {
-                year: taskEnd.getFullYear(),
-                month: taskEnd.getMonth() + 1
-            };
-
-            const startIndex = months.findIndex(m => 
-                m.year === startMonth.year && m.month === startMonth.month
-            );
-            const endIndex = months.findIndex(m => 
-                m.year === endMonth.year && m.month === endMonth.month
-            );
-            
-            if (startIndex === -1 || endIndex === -1) return '';
-            
-            // Calculate position and width as percentages
-            const totalMonths = months.length;
-            const monthWidth = 100 / totalMonths;
-            
-            // Calculate precise position within months
-            const startMonthDate = new Date(startMonth.year, startMonth.month - 1, 1);
-            const startMonthEnd = new Date(startMonth.year, startMonth.month, 0);
-            const startMonthDays = startMonthEnd.getDate();
-            const daysFromMonthStart = taskStart.getDate() - 1;
-            const startOffset = (daysFromMonthStart / startMonthDays) * monthWidth;
-            
-            const endMonthDate = new Date(endMonth.year, endMonth.month - 1, 1);
-            const endMonthEnd = new Date(endMonth.year, endMonth.month, 0);
-            const endMonthDays = endMonthEnd.getDate();
-            const daysToMonthEnd = taskEnd.getDate();
-            const endOffset = (daysToMonthEnd / endMonthDays) * monthWidth;
-            
-            const left = (startIndex * monthWidth) + startOffset;
-            const width = ((endIndex - startIndex) * monthWidth) + endOffset - startOffset;
-            
-            const duration = Math.ceil((taskEnd - taskStart) / (1000 * 60 * 60 * 24)) + 1;
-
-            return `
-                <div class="chart-row draggable" 
-                     draggable="true"
-                     ondragstart="handleDragStart(event, ${task.id})"
-                     ondragend="handleDragEnd(event)"
-                     ondragover="handleDragOver(event)"
-                     ondragenter="handleDragEnter(event, ${index})"
-                     ondragleave="handleDragLeave(event)"
-                     ondrop="handleDrop(event, ${index})">
-                    <div class="drag-handle"></div>
-                    <div class="task-label" style="border-left-color: ${task.color}">
-                        ${task.name}
-                    </div>
-                    <div class="timeline-track">
-                        <div class="task-bar" 
-                             style="left: ${left}%; width: ${width}%; background: linear-gradient(45deg, ${task.color}, ${adjustBrightness(task.color, -20)});"
-                             title="${task.name}: ${formatDate(task.startDate)} - ${formatDate(task.endDate)} (${duration} day${duration !== 1 ? 's' : ''})">
-                            ${width > 15 ? task.name : ''}
-                        </div>
-                    </div>
-                </div>
-            `;
         }
 
         function adjustBrightness(color, amount) {

@@ -5,7 +5,7 @@
 
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dynamic Gantt Chart with Groups</title>
+    <title>Enhanced Gantt Chart with Groups</title>
     <style>
         * {
             margin: 0;
@@ -100,16 +100,16 @@
 
         .button-group {
             display: flex;
-            gap: 15px;
+            gap: 10px;
             grid-column: 1 / -1;
             margin-top: 20px;
         }
 
         .btn {
-            padding: 12px 25px;
+            padding: 10px 20px;
             border: none;
             border-radius: 25px;
-            font-size: 1rem;
+            font-size: 0.9rem;
             font-weight: 600;
             cursor: pointer;
             transition: all 0.3s ease;
@@ -117,6 +117,7 @@
             letter-spacing: 0.5px;
             position: relative;
             overflow: hidden;
+            flex: 1;
         }
 
         .btn:before {
@@ -140,19 +141,26 @@
         .btn-primary {
             background: linear-gradient(45deg, #667eea, #764ba2);
             color: white;
-            flex: 1;
         }
 
         .btn-secondary {
             background: linear-gradient(45deg, #f093fb, #f5576c);
             color: white;
-            flex: 1;
         }
 
         .btn-tertiary {
             background: linear-gradient(45deg, #4facfe, #00f2fe);
             color: white;
-            flex: 1;
+        }
+
+        .btn-success {
+            background: linear-gradient(45deg, #56ab2f, #a8e6cf);
+            color: white;
+        }
+
+        .btn-info {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
         }
 
         .btn:hover {
@@ -211,6 +219,32 @@
             margin-left: 15px;
         }
 
+        .group-edit-controls {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-right: 10px;
+        }
+
+        .group-name-input, .group-color-input {
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            padding: 6px 10px;
+            font-size: 1rem;
+            font-weight: 600;
+        }
+
+        .group-name-input {
+            width: 150px;
+        }
+
+        .group-color-input {
+            width: 40px;
+            height: 30px;
+            padding: 0;
+            cursor: pointer;
+        }
+
         .group-tasks {
             max-height: 0;
             overflow: hidden;
@@ -230,6 +264,7 @@
             border-radius: 8px;
             border-left: 4px solid;
             transition: all 0.3s ease;
+            cursor: move;
         }
 
         .task-item:hover {
@@ -237,11 +272,16 @@
             box-shadow: 0 3px 10px rgba(0, 0, 0, 0.1);
         }
 
+        .task-item.dragging {
+            opacity: 0.5;
+            transform: rotate(5deg);
+        }
+
         .task-info {
             flex: 1;
             display: grid;
-            grid-template-columns: 2fr 1fr 1fr 80px;
-            gap: 15px;
+            grid-template-columns: 2fr 1fr 1fr 1fr 80px;
+            gap: 10px;
             align-items: center;
         }
 
@@ -379,6 +419,11 @@
 
         .chart-group {
             margin-bottom: 10px;
+            cursor: move;
+        }
+
+        .chart-group.dragging {
+            opacity: 0.5;
         }
 
         .chart-group-header {
@@ -444,6 +489,11 @@
             min-height: 35px;
             transition: all 0.3s ease;
             position: relative;
+            cursor: move;
+        }
+
+        .chart-row.dragging {
+            opacity: 0.5;
         }
 
         .task-label {
@@ -493,7 +543,6 @@
             top: 6px;
             height: 23px;
             border-radius: 12px;
-            background: linear-gradient(45deg, #667eea, #764ba2);
             opacity: 0.8;
             box-shadow: 0 3px 10px rgba(102, 126, 234, 0.3);
         }
@@ -526,6 +575,21 @@
             color: #bdc3c7;
             font-size: 1.2rem;
             font-style: italic;
+        }
+
+        .drop-zone {
+            min-height: 20px;
+            transition: all 0.3s ease;
+            border-radius: 8px;
+        }
+
+        .drop-zone.drag-over {
+            background-color: rgba(102, 126, 234, 0.1);
+            border: 2px dashed #667eea;
+        }
+
+        .file-input {
+            display: none;
         }
 
         @media (max-width: 768px) {
@@ -571,13 +635,11 @@
 <body>
     <div class="container">
         <div class="header">
-            <h1>Dynamic Gantt Chart with Groups</h1>
-            <p>Create and manage your project timeline with grouped tasks</p>
+            <h1>Enhanced Gantt Chart with Groups</h1>
+            <p>Create and manage your project timeline with grouped tasks - now with drag & drop!</p>
         </div>
 
         <div class="controls">
-            <button class="btn btn-secondary" onclick="saveChartAsPNG()">Save as PNG</button>
-
             <div class="form-group">
                 <label for="taskName">Task Name</label>
                 <input type="text" id="taskName" placeholder="Enter task name">
@@ -602,8 +664,13 @@
             <div class="button-group">
                 <button class="btn btn-primary" onclick="addTask()">Add Task</button>
                 <button class="btn btn-tertiary" onclick="toggleAllGroups()">Toggle All</button>
+                <button class="btn btn-secondary" onclick="saveChartAsPNG()">Save PNG</button>
+                <button class="btn btn-success" onclick="saveToFile()">Save File</button>
+                <button class="btn btn-info" onclick="document.getElementById('fileInput').click()">Load File</button>
             </div>
         </div>
+
+        <input type="file" id="fileInput" class="file-input" accept=".json" onchange="loadFromFile(this)">
 
         <div class="groups-list" id="groupsList"></div>
 
@@ -617,24 +684,37 @@
     <script>
         let tasks = [];
         let groups = {};
-        let groupStates = {}; // Track expanded/collapsed state
+        let groupStates = {};
+        let groupOrder = [];
+        let draggedElement = null;
+        let draggedType = null;
 
         function saveChartAsPNG() {
             const chart = document.getElementById('ganttChart');
             
-            const originalOverflow = document.body.style.overflow;
-            const originalHeight = document.body.style.height;
+            // Create a clone of the chart for PNG generation without highlighted groups
+            const chartClone = chart.cloneNode(true);
             
-            document.body.style.overflow = 'visible';
-            document.body.style.height = 'auto';
+            // Remove any highlighting or hover effects from the clone
+            const groupBars = chartClone.querySelectorAll('.group-bar');
+            groupBars.forEach(bar => {
+                bar.style.opacity = '0.6';
+                bar.style.boxShadow = '0 2px 4px rgba(0, 0, 0, 0.1)';
+            });
+
+            // Temporarily add the clone to the document (invisible)
+            chartClone.style.position = 'absolute';
+            chartClone.style.left = '-9999px';
+            chartClone.style.top = '0';
+            document.body.appendChild(chartClone);
             
-            html2canvas(chart, { 
+            html2canvas(chartClone, { 
                 scale: 3,
                 useCORS: true,
                 allowTaint: true,
                 backgroundColor: '#ffffff',
-                width: chart.scrollWidth,
-                height: chart.scrollHeight,
+                width: chartClone.scrollWidth,
+                height: chartClone.scrollHeight,
                 scrollX: 0,
                 scrollY: 0
             }).then(canvas => {
@@ -643,46 +723,73 @@
                 link.href = canvas.toDataURL('image/png');
                 link.click();
                 
-                document.body.style.overflow = originalOverflow;
-                document.body.style.height = originalHeight;
+                // Remove the clone
+                document.body.removeChild(chartClone);
             }).catch(err => {
                 console.error('Error generating PNG:', err);
                 alert('Error generating PNG. Please try again.');
-                
-                document.body.style.overflow = originalOverflow;
-                document.body.style.height = originalHeight;
+                document.body.removeChild(chartClone);
             });
         }
 
+        function saveToFile() {
+            const data = {
+                tasks: tasks,
+                groups: groups,
+                groupStates: groupStates,
+                groupOrder: groupOrder,
+                exportDate: new Date().toISOString(),
+                version: '2.0'
+            };
+            
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            const link = document.createElement('a');
+            link.download = `gantt_data_${new Date().toISOString().split('T')[0]}.json`;
+            link.href = URL.createObjectURL(blob);
+            link.click();
+        }
+
+        function loadFromFile(input) {
+            const file = input.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = JSON.parse(e.target.result);
+                    
+                    if (data.version && data.tasks && data.groups) {
+                        tasks = data.tasks || [];
+                        groups = data.groups || {};
+                        groupStates = data.groupStates || {};
+                        groupOrder = data.groupOrder || Object.keys(groups);
+                        
+                        updateGroupsList();
+                        updateChart();
+                        updateGroupSuggestions();
+                        
+                        alert('Data loaded successfully!');
+                    } else {
+                        alert('Invalid file format. Please select a valid Gantt chart data file.');
+                    }
+                } catch (error) {
+                    console.error('Error loading file:', error);
+                    alert('Error loading file. Please check the file format.');
+                }
+            };
+            reader.readAsText(file);
+            
+            // Reset the input
+            input.value = '';
+        }
+
         window.onload = function() {
-            loadData();
             setTodayDate();
             updateGroupsList();
             updateChart();
             updateGroupSuggestions();
+            setupDragAndDrop();
         };
-
-        function loadData() {
-            const savedTasks = localStorage.getItem('ganttTasks');
-            const savedGroups = localStorage.getItem('ganttGroups');
-            const savedGroupStates = localStorage.getItem('ganttGroupStates');
-            
-            if (savedTasks) {
-                tasks = JSON.parse(savedTasks);
-            }
-            if (savedGroups) {
-                groups = JSON.parse(savedGroups);
-            }
-            if (savedGroupStates) {
-                groupStates = JSON.parse(savedGroupStates);
-            }
-        }
-
-        function saveData() {
-            localStorage.setItem('ganttTasks', JSON.stringify(tasks));
-            localStorage.setItem('ganttGroups', JSON.stringify(groups));
-            localStorage.setItem('ganttGroupStates', JSON.stringify(groupStates));
-        }
 
         function setTodayDate() {
             const today = new Date().toISOString().split('T')[0];
@@ -727,16 +834,15 @@
 
             tasks.push(task);
 
-            // Initialize group if it doesn't exist
             if (!groups[groupName]) {
                 groups[groupName] = {
                     name: groupName,
                     color: taskColor
                 };
-                groupStates[groupName] = true; // Expanded by default
+                groupStates[groupName] = true;
+                groupOrder.push(groupName);
             }
 
-            saveData();
             updateGroupsList();
             updateChart();
             updateGroupSuggestions();
@@ -749,14 +855,13 @@
 
             tasks = tasks.filter(t => t.id !== taskId);
 
-            // Check if group is now empty
             const groupTasks = tasks.filter(t => t.group === task.group);
             if (groupTasks.length === 0) {
                 delete groups[task.group];
                 delete groupStates[task.group];
+                groupOrder = groupOrder.filter(g => g !== task.group);
             }
 
-            saveData();
             updateGroupsList();
             updateChart();
             updateGroupSuggestions();
@@ -778,29 +883,63 @@
             const oldGroup = task.group;
             task[field] = value;
 
-            // Handle group change
             if (field === 'group') {
                 const newGroup = value.trim() || 'Ungrouped';
                 task.group = newGroup;
 
-                // Initialize new group if needed
                 if (!groups[newGroup]) {
                     groups[newGroup] = {
                         name: newGroup,
                         color: task.color
                     };
                     groupStates[newGroup] = true;
+                    groupOrder.push(newGroup);
                 }
 
-                // Check if old group is now empty
                 const oldGroupTasks = tasks.filter(t => t.group === oldGroup);
                 if (oldGroupTasks.length === 0) {
                     delete groups[oldGroup];
                     delete groupStates[oldGroup];
+                    groupOrder = groupOrder.filter(g => g !== oldGroup);
                 }
             }
 
-            saveData();
+            updateGroupsList();
+            updateChart();
+            updateGroupSuggestions();
+        }
+
+        function updateGroupField(groupName, field, value) {
+            if (!groups[groupName]) return;
+            
+            if (field === 'name') {
+                const newName = value.trim();
+                if (newName && newName !== groupName && !groups[newName]) {
+                    // Update group name
+                    groups[newName] = { ...groups[groupName], name: newName };
+                    groupStates[newName] = groupStates[groupName];
+                    
+                    // Update all tasks in this group
+                    tasks.forEach(task => {
+                        if (task.group === groupName) {
+                            task.group = newName;
+                        }
+                    });
+                    
+                    // Update group order
+                    const index = groupOrder.indexOf(groupName);
+                    if (index !== -1) {
+                        groupOrder[index] = newName;
+                    }
+                    
+                    // Clean up old group
+                    delete groups[groupName];
+                    delete groupStates[groupName];
+                }
+            } else if (field === 'color') {
+                groups[groupName].color = value;
+            }
+            
             updateGroupsList();
             updateChart();
             updateGroupSuggestions();
@@ -808,7 +947,6 @@
 
         function toggleGroup(groupName) {
             groupStates[groupName] = !groupStates[groupName];
-            saveData();
             updateGroupsList();
             updateChart();
         }
@@ -821,7 +959,6 @@
                 groupStates[groupName] = newState;
             });
 
-            saveData();
             updateGroupsList();
             updateChart();
         }
@@ -848,22 +985,31 @@
                 return;
             }
 
-            const groupNames = Object.keys(groups).sort();
+            const orderedGroups = groupOrder.filter(groupName => groups[groupName]);
             
-            groupsList.innerHTML = groupNames.map(groupName => {
+            groupsList.innerHTML = orderedGroups.map(groupName => {
                 const groupTasks = tasks.filter(t => t.group === groupName);
                 const isExpanded = groupStates[groupName];
                 
                 return `
-                    <div class="group-item">
+                    <div class="group-item" draggable="true" data-group="${groupName}">
                         <div class="group-header" onclick="toggleGroup('${groupName}')">
                             <span class="group-toggle ${isExpanded ? '' : 'collapsed'}">▼</span>
-                            <span class="group-name">${groupName}</span>
+                            <div class="group-edit-controls">
+                                <input type="text" value="${groupName}" 
+                                       class="group-name-input"
+                                       onchange="updateGroupField('${groupName}', 'name', this.value)"
+                                       onclick="event.stopPropagation()" />
+                                <input type="color" value="${groups[groupName].color}" 
+                                       class="group-color-input"
+                                       onchange="updateGroupField('${groupName}', 'color', this.value)"
+                                       onclick="event.stopPropagation()" />
+                            </div>
                             <span class="group-stats">${groupTasks.length} task${groupTasks.length !== 1 ? 's' : ''}</span>
                         </div>
                         <div class="group-tasks ${isExpanded ? 'expanded' : ''}">
                             ${groupTasks.map(task => `
-                                <div class="task-item" style="border-left-color: ${task.color}">
+                                <div class="task-item" style="border-left-color: ${task.color}" draggable="true" data-task-id="${task.id}">
                                     <div class="task-info">
                                         <input type="text" value="${task.name}" 
                                                onchange="updateTaskField(${task.id}, 'name', this.value)" 
@@ -884,10 +1030,88 @@
                                     <button class="delete-btn" onclick="deleteTask(${task.id})">Delete</button>
                                 </div>
                             `).join('')}
+                            <div class="drop-zone" data-group="${groupName}"></div>
                         </div>
                     </div>
                 `;
             }).join('');
+        }
+
+        function setupDragAndDrop() {
+            document.addEventListener('dragstart', handleDragStart);
+            document.addEventListener('dragover', handleDragOver);
+            document.addEventListener('drop', handleDrop);
+            document.addEventListener('dragend', handleDragEnd);
+        }
+
+        function handleDragStart(e) {
+            if (e.target.dataset.taskId) {
+                draggedElement = e.target;
+                draggedType = 'task';
+                e.dataTransfer.setData('text/plain', e.target.dataset.taskId);
+                e.target.classList.add('dragging');
+            } else if (e.target.dataset.group) {
+                draggedElement = e.target;
+                draggedType = 'group';
+                e.dataTransfer.setData('text/plain', e.target.dataset.group);
+                e.target.classList.add('dragging');
+            }
+        }
+
+        function handleDragOver(e) {
+            e.preventDefault();
+            const dropZone = e.target.closest('.drop-zone');
+            if (dropZone) {
+                dropZone.classList.add('drag-over');
+            }
+        }
+
+        function handleDrop(e) {
+            e.preventDefault();
+            const dropZone = e.target.closest('.drop-zone');
+            
+            if (dropZone) {
+                dropZone.classList.remove('drag-over');
+                
+                if (draggedType === 'task') {
+                    const taskId = parseInt(e.dataTransfer.getData('text/plain'));
+                    const targetGroup = dropZone.dataset.group;
+                    
+                    if (taskId && targetGroup) {
+                        updateTaskField(taskId, 'group', targetGroup);
+                    }
+                }
+            } else if (draggedType === 'group') {
+                // Handle group reordering
+                const targetGroup = e.target.closest('.group-item');
+                if (targetGroup && targetGroup !== draggedElement) {
+                    const draggedGroupName = draggedElement.dataset.group;
+                    const targetGroupName = targetGroup.dataset.group;
+                    
+                    const draggedIndex = groupOrder.indexOf(draggedGroupName);
+                    const targetIndex = groupOrder.indexOf(targetGroupName);
+                    
+                    if (draggedIndex !== -1 && targetIndex !== -1) {
+                        groupOrder.splice(draggedIndex, 1);
+                        groupOrder.splice(targetIndex, 0, draggedGroupName);
+                        updateGroupsList();
+                        updateChart();
+                    }
+                }
+            }
+        }
+
+        function handleDragEnd(e) {
+            if (draggedElement) {
+                draggedElement.classList.remove('dragging');
+                draggedElement = null;
+                draggedType = null;
+            }
+            
+            // Remove any remaining drag-over classes
+            document.querySelectorAll('.drag-over').forEach(el => {
+                el.classList.remove('drag-over');
+            });
         }
 
         function formatDate(dateString) {
@@ -907,7 +1131,6 @@
                 return;
             }
 
-            // Calculate date range
             const allDates = tasks.flatMap(task => [new Date(task.startDate), new Date(task.endDate)]);
             const minDate = new Date(Math.min(...allDates));
             const maxDate = new Date(Math.max(...allDates));
@@ -933,13 +1156,14 @@
             const today = new Date();
             const todayPosition = calculateTodayPosition(today, months);
 
-            // Calculate total height for today line
             let totalRows = 0;
-            Object.keys(groups).forEach(groupName => {
-                totalRows++; // Group header
-                if (groupStates[groupName]) {
-                    const groupTasks = tasks.filter(t => t.group === groupName);
-                    totalRows += groupTasks.length;
+            groupOrder.forEach(groupName => {
+                if (groups[groupName]) {
+                    totalRows++;
+                    if (groupStates[groupName]) {
+                        const groupTasks = tasks.filter(t => t.group === groupName);
+                        totalRows += groupTasks.length;
+                    }
                 }
             });
 
@@ -965,13 +1189,10 @@
         }
 
         function createGroupChartHTML(months) {
-            const groupNames = Object.keys(groups).sort();
-            
-            return groupNames.map(groupName => {
+            return groupOrder.filter(groupName => groups[groupName]).map(groupName => {
                 const groupTasks = tasks.filter(t => t.group === groupName);
                 const isExpanded = groupStates[groupName];
                 
-                // Calculate group timeline (earliest start to latest end)
                 let groupStart = null;
                 let groupEnd = null;
                 
@@ -989,7 +1210,7 @@
                 ).join('') : '';
 
                 return `
-                    <div class="chart-group">
+                    <div class="chart-group" draggable="true" data-group="${groupName}">
                         ${!isExpanded ? `
                             <div class="chart-group-header" onclick="toggleGroup('${groupName}')">
                                 <div class="chart-group-label">
@@ -1039,7 +1260,6 @@
             const totalMonths = months.length;
             const monthWidth = 100 / totalMonths;
             
-            // Calculate precise position within months
             const startMonthDate = new Date(startMonth.year, startMonth.month - 1, 1);
             const startMonthEnd = new Date(startMonth.year, startMonth.month, 0);
             const startMonthDays = startMonthEnd.getDate();
@@ -1056,10 +1276,11 @@
             const width = ((endIndex - startIndex) * monthWidth) + endOffset - startOffset;
             
             const duration = Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24)) + 1;
+            const groupColor = groups[groupName]?.color || '#667eea';
 
             return `
                 <div class="group-bar" 
-                     style="left: ${left}%; width: ${width}%;"
+                     style="left: ${left}%; width: ${width}%; background: linear-gradient(45deg, ${groupColor}, ${adjustBrightness(groupColor, -20)});"
                      title="${groupName}: ${formatDate(startDate)} - ${formatDate(endDate)} (${duration} day${duration !== 1 ? 's' : ''})">
                 </div>
             `;
@@ -1090,7 +1311,6 @@
             const totalMonths = months.length;
             const monthWidth = 100 / totalMonths;
             
-            // Calculate precise position within months
             const startMonthDate = new Date(startMonth.year, startMonth.month - 1, 1);
             const startMonthEnd = new Date(startMonth.year, startMonth.month, 0);
             const startMonthDays = startMonthEnd.getDate();
@@ -1109,7 +1329,7 @@
             const duration = Math.ceil((taskEnd - taskStart) / (1000 * 60 * 60 * 24)) + 1;
 
             return `
-                <div class="chart-row">
+                <div class="chart-row" draggable="true" data-task-id="${task.id}">
                     <div class="task-label" style="border-left-color: ${task.color}">
                         ${task.name}
                     </div>
@@ -1214,6 +1434,9 @@
                 if (event.key === 'Enter') {
                     event.preventDefault();
                     addTask();
+                } else if (event.key === 's') {
+                    event.preventDefault();
+                    saveToFile();
                 }
             }
             if (event.key === 'Escape') {

@@ -587,28 +587,6 @@
             box-shadow: 0 3px 10px rgba(102, 126, 234, 0.3);
         }
 
-        .today-line {
-            position: absolute;
-            top: 0;
-            width: 3px;
-            background: linear-gradient(to bottom, #e74c3c, #c0392b);
-            z-index: 100;
-            border-radius: 2px;
-            box-shadow: 0 0 10px rgba(231, 76, 60, 0.5);
-        }
-
-        .today-marker {
-            position: absolute;
-            top: -8px;
-            left: -8px;
-            width: 19px;
-            height: 19px;
-            background: #e74c3c;
-            border-radius: 50%;
-            border: 3px solid white;
-            box-shadow: 0 2px 8px rgba(231, 76, 60, 0.4);
-        }
-
         .no-tasks {
             text-align: center;
             padding: 60px 20px;
@@ -1466,20 +1444,6 @@
                 </div>
             `).join('');
 
-            const today = new Date();
-            const todayPosition = calculateTodayPosition(today, months);
-
-            let totalRows = 0;
-            groupOrder.forEach(groupName => {
-                if (groups[groupName]) {
-                    totalRows++;
-                    if (groupStates[groupName]) {
-                        const groupTasks = tasks.filter(t => t.group === groupName);
-                        totalRows += groupTasks.length;
-                    }
-                }
-            });
-
             const chartHTML = `
                 <div class="chart-header">
                     <div class="chart-title">Tasks & Groups</div>
@@ -1489,11 +1453,6 @@
                     </div>
                 </div>
                 <div class="chart-body">
-                    ${todayPosition >= 0 ? `
-                        <div class="today-line" style="left: ${250 + todayPosition}px; height: ${totalRows * 45 + 20}px;">
-                            <div class="today-marker"></div>
-                        </div>
-                    ` : ''}
                     ${createGroupChartHTML(months)}
                 </div>
             `;
@@ -1702,30 +1661,6 @@
             const names = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
                           'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
             return names[monthNum - 1];
-        }
-
-        function calculateTodayPosition(today, months) {
-            const todayMonth = {
-                year: today.getFullYear(),
-                month: today.getMonth() + 1
-            };
-
-            const monthIndex = months.findIndex(m => 
-                m.year === todayMonth.year && m.month === todayMonth.month
-            );
-
-            if (monthIndex === -1) return -1;
-
-            const monthStart = new Date(todayMonth.year, todayMonth.month - 1, 1);
-            const monthEnd = new Date(todayMonth.year, todayMonth.month, 0);
-            const monthDays = monthEnd.getDate();
-            const dayOfMonth = today.getDate();
-
-            const chartWidth = document.getElementById('ganttChart').offsetWidth - 270;
-            const monthWidth = chartWidth / months.length;
-            const dayPosition = (dayOfMonth / monthDays) * monthWidth;
-
-            return (monthIndex * monthWidth) + dayPosition;
         }
 
         function adjustBrightness(color, amount) {

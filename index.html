@@ -85,6 +85,12 @@
             background: white;
         }
 
+        /* Red alert highlight for invalid inputs */
+        .input-error {
+            border-color: #e53935 !important;
+            box-shadow: 0 0 0 3px rgba(229, 57, 53, 0.15) !important;
+        }
+
         .form-group input:focus, .form-group select:focus {
             outline: none;
             border-color: #667eea;
@@ -1561,6 +1567,16 @@
             updateSaveIndicator();
         };
 
+        // Clear red highlight as user types a task name
+        (function(){
+            const taskNameEl = document.getElementById('taskName');
+            if (taskNameEl) {
+                taskNameEl.addEventListener('input', function(){
+                    this.classList.remove('input-error');
+                });
+            }
+        })();
+
         function setTodayDate() {
             const today = new Date().toISOString().split('T')[0];
             const startDateInput = document.getElementById('startDate');
@@ -1577,19 +1593,33 @@
         }
 
         function addTask() {
-            const taskName = document.getElementById('taskName').value.trim();
-            const groupName = document.getElementById('groupName').value.trim() || 'Ungrouped';
-            const startDate = document.getElementById('startDate').value;
-            const endDate = document.getElementById('endDate').value;
-            const taskColor = document.getElementById('taskColor').value;
+            const taskNameInput = document.getElementById('taskName');
+            const groupNameInput = document.getElementById('groupName');
+            const startDateInput = document.getElementById('startDate');
+            const endDateInput = document.getElementById('endDate');
+            const colorInput = document.getElementById('taskColor');
 
+            const taskName = taskNameInput.value.trim();
+            const groupName = groupNameInput.value.trim() || 'Ungrouped';
+            const startDate = startDateInput.value;
+            const endDate = endDateInput.value;
+            const taskColor = colorInput.value;
+
+            // remove previous error highlight
+            taskNameInput.classList.remove('input-error');
+
+            // highlight task name box on missing fields
             if (!taskName || !startDate || !endDate) {
-                showNotification('Please fill in task name, start date, and end date', 'error');
+                if (!taskName) {
+                    taskNameInput.classList.add('input-error');
+                    taskNameInput.focus();
+                }
                 return;
             }
 
             if (new Date(startDate) > new Date(endDate)) {
                 showNotification('Start date cannot be after end date', 'error');
+                endDateInput.focus();
                 return;
             }
 
@@ -1769,7 +1799,9 @@
         }
 
         function clearForm() {
-            document.getElementById('taskName').value = '';
+            const tn = document.getElementById('taskName');
+            tn.value = '';
+            tn.classList.remove('input-error');
             document.getElementById('groupName').value = '';
             setTodayDate();
             document.getElementById('taskColor').value = '#667eea';

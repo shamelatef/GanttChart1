@@ -892,7 +892,7 @@
             </div>
             <div class="button-group">
                 <button class="btn btn-primary" onclick="addTask()">Add Task</button>
-                <button class="btn btn-tertiary" onclick="toggleAllGroups()">Toggle All</button>
+                <button class="btn btn-tertiary" onclick="toggleAllGroups()">Collapse All</button>
                 <button class="btn btn-secondary" onclick="saveChartAsPNG()">Save PNG</button>
                 <button class="btn btn-success" onclick="saveToFile()">Save File</button>
                 <button class="btn btn-info" onclick="document.getElementById('fileInput').click()">Load File</button>
@@ -2295,6 +2295,58 @@
                 showNotification('PNG export failed', 'error');
                 const exportRoot = document.querySelector('.container');
                 if (exportRoot) exportRoot.classList.remove('export-mode');
+            }
+        }
+
+        // Export a PNG with all groups collapsed, then restore the original expansion state
+        function saveCollapsedChartAsPNG() {
+            const exportRoot = document.querySelector('.container');
+            const target = document.querySelector('.chart-container') || document.getElementById('ganttChart');
+            if (!target) {
+                showNotification('Nothing to export yet', 'error');
+                return;
+            }
+
+            // Snapshot current expansion state
+            const prevStates = { ...groupStates };
+
+            try {
+                // Collapse all groups
+                Object.keys(groups || {}).forEach(g => { groupStates[g] = false; });
+                updateChart();
+
+                // Enable export mode and render next frame
+                exportRoot.classList.add('export-mode');
+                requestAnimationFrame(() => {
+                    html2canvas(target, {
+                        backgroundColor: null,
+                        scale: window.devicePixelRatio > 1 ? 2 : 2,
+                        useCORS: true,
+                        logging: false
+                    }).then(canvas => {
+                        const link = document.createElement('a');
+                        const ts = new Date().toISOString().replace(/[:.]/g, '-');
+                        link.download = `gantt-chart-collapsed-${ts}.png`;
+                        link.href = canvas.toDataURL('image/png');
+                        link.click();
+                        showNotification('Collapsed PNG exported', 'success');
+                    }).catch(err => {
+                        console.error('Collapsed export failed:', err);
+                        showNotification('Collapsed PNG export failed', 'error');
+                    }).finally(() => {
+                        // Restore UI/state
+                        Object.keys(prevStates).forEach(g => { groupStates[g] = prevStates[g]; });
+                        exportRoot.classList.remove('export-mode');
+                        updateChart();
+                    });
+                });
+            } catch (e) {
+                console.error(e);
+                showNotification('Collapsed PNG export failed', 'error');
+                // Ensure state is restored even on sync errors
+                Object.keys(prevStates).forEach(g => { groupStates[g] = prevStates[g]; });
+                if (exportRoot) exportRoot.classList.remove('export-mode');
+                updateChart();
             }
         }
         

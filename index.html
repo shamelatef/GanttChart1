@@ -713,6 +713,23 @@
             background: rgba(0,0,0,0.06);
         }
 
+        /* Duplicate icon on project tab */
+        .project-tab .duplicate {
+            font-size: 13px;
+            opacity: 0.8;
+            background: transparent;
+            border: 0;
+            color: inherit;
+            cursor: pointer;
+            padding: 0 4px;
+            line-height: 1;
+            border-radius: 4px;
+        }
+        .project-tab .duplicate:hover {
+            opacity: 1;
+            background: rgba(0,0,0,0.06);
+        }
+
         /* Rename modal */
         .modal-backdrop {
             position: fixed;
@@ -809,6 +826,7 @@
                 <button class="btn btn-success" onclick="saveToFile()">Save File</button>
                 <button class="btn btn-info" onclick="document.getElementById('fileInput').click()">Load File</button>
                 <button class="btn btn-info" onclick="document.getElementById('excelInput').click()">Import CSV</button>
+                <button class="btn" onclick="exportCSV()">Export CSV</button>
             </div>
         </div>
 
@@ -886,6 +904,14 @@
                 delBtn.setAttribute('aria-label', 'Delete project');
                 delBtn.textContent = '×';
                 delBtn.onclick = (e) => { e.stopPropagation(); deleteProject(idx); };
+                const dupBtn = document.createElement('button');
+                dupBtn.className = 'duplicate';
+                dupBtn.type = 'button';
+                dupBtn.title = 'Duplicate project';
+                dupBtn.setAttribute('aria-label', 'Duplicate project');
+                dupBtn.textContent = '⎘';
+                dupBtn.onclick = (e) => { e.stopPropagation(); duplicateProject(idx); };
+                tab.appendChild(dupBtn);
                 tab.appendChild(delBtn);
                 el.appendChild(tab);
             });
@@ -1220,6 +1246,29 @@
             markAsSaved();
             localStorage.removeItem('gantt_autosave'); // Clear auto-save after manual save
             showNotification('File saved successfully', 'success');
+        }
+
+        // Export active project's tasks as CSV
+        function exportCSV() {
+            // Use current globals for active project
+            const rows = tasks.map(t => ({
+                Task_Name: t.name || '',
+                group_name: t.group || '',
+                start_date: t.startDate || '',
+                end_date: t.endDate || ''
+            }));
+            const header = ['Task_Name','group_name','start_date','end_date'];
+            const esc = v => '"' + String(v).replace(/"/g, '""') + '"';
+            const lines = [header.join(',')].concat(rows.map(r => header.map(h => esc(r[h])).join(',')));
+            const csv = lines.join('\n');
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            const ts = new Date().toISOString().split('T')[0];
+            const projName = (projects[activeProjectIndex]?.name || 'project').replace(/[^\w\-]+/g,'_');
+            link.download = `${projName}_tasks_${ts}.csv`;
+            link.href = URL.createObjectURL(blob);
+            link.click();
+            if (typeof showNotification === 'function') showNotification('CSV exported', 'success');
         }
 
         function loadFromFile(input) {
@@ -2250,6 +2299,32 @@
 
         // Auto-focus on task name input
         document.getElementById('taskName').focus();
+    // Project duplication
+    function duplicateProject(index) {
+        if (!projects[index]) return;
+        // Ensure current active project is saved
+        syncActiveFromGlobals();
+        const source = projects[index];
+        const clone = JSON.parse(JSON.stringify(source));
+        // Generate unique name
+        const base = (source.name || 'Untitled') + ' (copy)';
+        let name = base;
+        let n = 2;
+        const names = new Set(projects.map(p => p.name || 'Untitled'));
+        while (names.has(name)) { name = `${base} ${n++}`; }
+        clone.name = name;
+        // Insert duplicate after source and activate it
+        projects.splice(index + 1, 0, clone);
+        activeProjectIndex = index + 1;
+        // Refresh UI/state for the new active project
+        syncGlobalsFromActive();
+        renderProjectTabs();
+        updateGroupsList();
+        updateChart();
+        updateGroupSuggestions();
+        markAsChanged();
+        if (typeof showNotification === 'function') showNotification(`Duplicated project as "${name}"`, 'success');
+    }
     </script>
 </body>
 </html>

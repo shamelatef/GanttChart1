@@ -22,7 +22,7 @@
         }
 
         .container {
-            max-width: 1400px;
+            max-width: 1600px;
             margin: 0 auto;
             background: rgba(255, 255, 255, 0.95);
             border-radius: 20px;
@@ -328,9 +328,9 @@
         .chart-container {
             background: white;
             border-radius: 15px;
-            padding: 25px;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
-            border: 2px solid rgba(102, 126, 234, 0.1);
+            padding: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+            margin-top: 20px;
             overflow: visible;
         }
 
@@ -501,7 +501,7 @@
         }
 
         .chart-group-tasks {
-            overflow: hidden;
+            overflow: visible; /* allow bars/contents to render fully */
             transition: max-height 0.3s ease;
         }
 
@@ -511,7 +511,7 @@
 
         .chart-row {
             display: grid;
-            grid-template-columns: 250px 1fr;
+            grid-template-columns: 220px 1fr;
             align-items: center;
             margin-bottom: 8px;
             min-height: 35px;
@@ -541,36 +541,102 @@
             padding: 8px 12px;
             font-weight: 500;
             color: #2c3e50;
-            background: linear-gradient(135deg, #f8f9ff, #e8f4fd);
-            border-radius: 6px;
-            margin-right: 10px;
-            margin-left: 20px;
-            border-left: 3px solid;
+            background: linear-gradient(135deg, #f8f9ff, #eef2ff);
+            border: 1px solid #e0e6ff;
+            border-left: 6px solid #667eea;
+            border-radius: 10px;
+            margin-bottom: 6px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
             transition: all 0.3s ease;
             font-size: 0.9rem;
         }
 
+        .inline-actions { 
+            margin-left: auto; 
+            display: flex; 
+            gap: 6px; 
+            align-items: center; 
+        }
+
+        .action-btn { 
+            border: none; 
+            background: transparent; 
+            color: #64748b; 
+            font-size: 12px; 
+            padding: 2px 6px; 
+            border-radius: 6px; 
+            cursor: pointer; 
+            transition: background .15s ease, color .15s ease;
+        }
+
+        .action-btn:hover { 
+            background: #eef2ff; 
+            color: #374151; 
+        }
+
+        .action-danger { 
+            color: #c0392b; 
+        }
+
+        .action-danger:hover { 
+            background: #fdeaea; 
+            color: #a02d20; 
+        }
+
+        .action-color { 
+            width: 18px; 
+            height: 18px; 
+            padding: 0; 
+            border-radius: 4px; 
+            overflow: hidden; 
+            border: 1px solid #e0e6ff; 
+        }
+
+        .action-color input[type="color"] { 
+            appearance: none; 
+            -webkit-appearance: none; 
+            border: none; 
+            padding: 0; 
+            margin: 0; 
+            width: 18px; 
+            height: 18px; 
+            cursor: pointer; 
+            background: transparent;
+        }
+
+        .action-color input[type="color"]::-webkit-color-swatch-wrapper { 
+            padding: 0; 
+        }
+
+        .action-color input[type="color"]::-webkit-color-swatch { 
+            border: none; 
+            border-radius: 3px; 
+        }
+
         .timeline-track {
             position: relative;
-            height: 25px;
+            height: 23px; /* match group-bar height */
             background: linear-gradient(135deg, #f8f9fa, #e9ecef);
-            border-radius: 6px;
+            border-radius: 12px;
             overflow: hidden;
         }
 
         .task-bar {
             position: absolute;
-            top: 3px;
-            height: 19px;
-            border-radius: 10px;
+            top: 0;
+            height: 23px; /* match group-bar height */
+            border-radius: 12px;
             display: flex;
             align-items: center;
             justify-content: center;
             color: white;
-            font-size: 0.7rem;
             font-weight: 600;
+            font-size: 12px;
+            text-shadow: 0 1px 1px rgba(0, 0, 0, 0.2);
             box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
-            transition: all 0.3s ease;
+            transition: all 0.2s ease;
             cursor: pointer;
         }
 
@@ -661,6 +727,11 @@
         .export-mode .chart-group-header {
             /* ensure header keeps subtle background without transparency issues */
             background: linear-gradient(135deg, #f0f4ff, #e8f0fe) !important;
+        }
+
+        /* Hide edit/color/delete controls when exporting */
+        .export-mode .inline-actions {
+            display: none !important;
         }
 
         /* Project tabs */
@@ -833,7 +904,7 @@
         <input type="file" id="fileInput" class="file-input" accept=".json" onchange="loadFromFile(this)">
         <input type="file" id="excelInput" class="file-input" accept=".xlsx,.csv" onchange="importFromExcel(this)">
 
-        <div class="groups-list" id="groupsList"></div>
+        <div class="groups-list" id="groupsList" style="display:none" aria-hidden="true"></div>
 
         <div class="chart-container">
             <div class="chart" id="ganttChart">
@@ -1713,64 +1784,8 @@
 
         function updateGroupsList() {
             const groupsList = document.getElementById('groupsList');
-            
-            if (tasks.length === 0) {
-                groupsList.innerHTML = '';
-                return;
-            }
-
-            const orderedGroups = groupOrder.filter(groupName => groups[groupName]);
-            
-            groupsList.innerHTML = orderedGroups.map(groupName => {
-                const groupTasks = tasks.filter(t => t.group === groupName);
-                const isExpanded = groupStates[groupName];
-                
-                return `
-                    <div class="group-item" draggable="true" data-group="${groupName}">
-                        <div class="group-header" onclick="toggleGroup('${groupName}')">
-                            <span class="group-toggle ${isExpanded ? '' : 'collapsed'}">▼</span>
-                            <div class="group-edit-controls">
-                                <input type="text" value="${groupName}" 
-                                       class="group-name-input"
-                                       onchange="updateGroupField('${groupName}', 'name', this.value)"
-                                       onclick="event.stopPropagation()" />
-                                <input type="color" value="${groups[groupName].color}" 
-                                       class="group-color-input"
-                                       onchange="updateGroupField('${groupName}', 'color', this.value)"
-                                       onclick="event.stopPropagation()" />
-                                <button class="delete-btn" title="Delete group and all its tasks"
-                                        onclick="event.stopPropagation(); deleteGroup('${groupName}')">Delete Group</button>
-                            </div>
-                            <span class="group-stats">${groupTasks.length} task${groupTasks.length !== 1 ? 's' : ''}</span>
-                        </div>
-                        <div class="group-tasks ${isExpanded ? 'expanded' : ''}">
-                            ${groupTasks.map(task => `
-                                <div class="task-item" style="border-left-color: ${task.color}" draggable="true" data-task-id="${task.id}">
-                                    <div class="task-info">
-                                        <input type="text" value="${task.name}" 
-                                               onchange="updateTaskField(${task.id}, 'name', this.value)" 
-                                               class="group-input" />
-                                        <input type="text" value="${task.group}" 
-                                               onchange="updateTaskField(${task.id}, 'group', this.value)" 
-                                               class="group-input" 
-                                               list="groupSuggestions" />
-                                        <input type="date" value="${task.startDate}" 
-                                               onchange="updateTaskField(${task.id}, 'startDate', this.value)" 
-                                               class="group-input" />
-                                        <input type="date" value="${task.endDate}" 
-                                               onchange="updateTaskField(${task.id}, 'endDate', this.value)" 
-                                               class="group-input" />
-                                        <input type="color" value="${task.color}" 
-                                               onchange="updateTaskField(${task.id}, 'color', this.value)" />
-                                    </div>
-                                    <button class="delete-btn" onclick="deleteTask(${task.id})">Delete</button>
-                                </div>
-                            `).join('')}
-                            <div class="drop-zone" data-group="${groupName}"></div>
-                        </div>
-                    </div>
-                `;
-            }).join('');
+            if (groupsList) { groupsList.style.display = 'none'; groupsList.innerHTML = ''; }
+            return; // side list removed
         }
 
         function setupDragAndDrop() {
@@ -2048,25 +2063,20 @@
 
                 return `
                     <div class="chart-group" draggable="true" data-group="${groupName}">
-                        ${!isExpanded ? `
-                            <div class="chart-group-header" onclick="toggleGroup('${groupName}')">
-                                <div class="chart-group-label">
-                                    <span class="chart-group-toggle collapsed">▼</span>
-                                    ${groupName} (${groupTasks.length})
-                                </div>
-                                <div class="chart-group-timeline">
-                                    ${groupBarHTML}
+                        <div class="chart-group-header" onclick="toggleGroup('${groupName}')">
+                            <div class="chart-group-label" style="position: relative; width: 100%; display:flex; align-items:center; gap:8px;">
+                                <span class="chart-group-toggle ${isExpanded ? '' : 'collapsed'}">▼</span>
+                                <span>${groupName} (${groupTasks.length})</span>
+                                <div class="inline-actions">
+                                    <button class="action-btn" title="Edit name" onclick="event.stopPropagation(); (function(){ const nv = prompt('Group name:', '${groupName}'); if(nv!==null){ updateGroupField('${groupName}','name', nv); } })()">Edit</button>
+                                    <label class="action-color" title="Change color" onclick="event.stopPropagation();">
+                                        <input type="color" value="${groups[groupName]?.color || '#667eea'}" onchange="updateGroupField('${groupName}','color', this.value)" />
+                                    </label>
+                                    <button class="action-btn action-danger" title="Delete group" onclick="event.stopPropagation(); deleteGroup('${groupName}')">Delete</button>
                                 </div>
                             </div>
-                        ` : `
-                            <div class="chart-group-header" onclick="toggleGroup('${groupName}')" style="background: transparent; margin-bottom: 10px;">
-                                <div class="chart-group-label">
-                                    <span class="chart-group-toggle">▼</span>
-                                    ${groupName} (${groupTasks.length})
-                                </div>
-                                <div class="chart-group-timeline" style="opacity: 0;"></div>
-                            </div>
-                        `}
+                            ${!isExpanded ? `<div class=\"chart-group-timeline\">${groupBarHTML}</div>` : ``}
+                        </div>
                         <div class="chart-group-tasks ${isExpanded ? '' : 'collapsed'}">
                             ${tasksHTML}
                         </div>
@@ -2167,8 +2177,15 @@
 
             return `
                 <div class="chart-row" draggable="true" data-task-id="${task.id}">
-                    <div class="task-label" style="border-left-color: ${task.color}">
-                        ${task.name}
+                    <div class="task-label" style="border-left-color: ${task.color}" onclick="event.stopPropagation()">
+                        <span>${task.name}</span>
+                        <div class="inline-actions">
+                            <button class="action-btn" title="Edit task" onclick="event.stopPropagation(); (function(){ const nv = prompt('Task name:', '${task.name.replace(/"/g, '&quot;')}'); if(nv!==null){ updateTaskField(${task.id}, 'name', nv); } })()">Edit</button>
+                            <label class="action-color" title="Change color" onclick="event.stopPropagation();">
+                                <input type="color" value="${task.color}" onchange="updateTaskField(${task.id}, 'color', this.value)" />
+                            </label>
+                            <button class="action-btn action-danger" title="Delete task" onclick="event.stopPropagation(); deleteTask(${task.id})">Delete</button>
+                        </div>
                     </div>
                     <div class="timeline-track">
                         <div class="task-bar" 

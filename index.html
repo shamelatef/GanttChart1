@@ -696,6 +696,23 @@
             border-style: dashed;
         }
 
+        /* Delete (close) icon on project tab */
+        .project-tab .delete {
+            font-size: 13px;
+            opacity: 0.7;
+            background: transparent;
+            border: 0;
+            color: inherit;
+            cursor: pointer;
+            padding: 0 4px;
+            line-height: 1;
+            border-radius: 4px;
+        }
+        .project-tab .delete:hover {
+            opacity: 1;
+            background: rgba(0,0,0,0.06);
+        }
+
         /* Rename modal */
         .modal-backdrop {
             position: fixed;
@@ -862,6 +879,14 @@
                 tab.onclick = () => switchProject(idx);
                 tab.ondblclick = () => openRenameModal(idx);
                 tab.querySelector('.rename').onclick = (e) => { e.stopPropagation(); openRenameModal(idx); };
+                const delBtn = document.createElement('button');
+                delBtn.className = 'delete';
+                delBtn.type = 'button';
+                delBtn.title = 'Delete project';
+                delBtn.setAttribute('aria-label', 'Delete project');
+                delBtn.textContent = '×';
+                delBtn.onclick = (e) => { e.stopPropagation(); deleteProject(idx); };
+                tab.appendChild(delBtn);
                 el.appendChild(tab);
             });
             const addBtn = document.createElement('button');
@@ -896,6 +921,35 @@
             updateChart();
             updateGroupSuggestions();
             markAsSaved(); // switching shows saved state for the switched content
+        }
+
+        function deleteProject(index) {
+            if (!projects[index]) return;
+            const name = projects[index].name || 'Untitled';
+            const ok = confirm(`Delete project "${name}"? This cannot be undone.`);
+            if (!ok) return;
+
+            if (projects.length <= 1) {
+                // Keep at least one empty project so UI remains usable
+                projects = [makeEmptyProject('Project 1')];
+                activeProjectIndex = 0;
+            } else {
+                projects.splice(index, 1);
+                // Adjust active index
+                if (activeProjectIndex > index) {
+                    activeProjectIndex -= 1;
+                } else if (activeProjectIndex === index) {
+                    activeProjectIndex = Math.max(0, activeProjectIndex - 1);
+                }
+            }
+
+            // Load active project into globals and refresh UI
+            syncGlobalsFromActive();
+            renderProjectTabs();
+            updateGroupsList();
+            updateChart();
+            updateGroupSuggestions();
+            markAsChanged();
         }
 
         // Modal-based renaming

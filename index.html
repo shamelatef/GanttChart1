@@ -1047,6 +1047,29 @@
             showNotification('Task deleted', 'success');
         }
 
+        function deleteGroup(groupName) {
+            if (!groups[groupName]) return;
+            const count = tasks.filter(t => t.group === groupName).length;
+            const message = count > 0
+                ? `Delete group "${groupName}" and its ${count} task${count !== 1 ? 's' : ''}?`
+                : `Delete empty group "${groupName}"?`;
+            if (!confirm(message)) return;
+
+            // Remove all tasks in the group
+            tasks = tasks.filter(t => t.group !== groupName);
+
+            // Remove group state and order
+            delete groups[groupName];
+            delete groupStates[groupName];
+            groupOrder = groupOrder.filter(g => g !== groupName);
+
+            markAsChanged();
+            updateGroupsList();
+            updateChart();
+            updateGroupSuggestions();
+            showNotification('Group deleted', 'success');
+        }
+
         function updateTaskField(taskId, field, value) {
             const task = tasks.find(t => t.id === taskId);
             if (!task) return;
@@ -1188,6 +1211,8 @@
                                        class="group-color-input"
                                        onchange="updateGroupField('${groupName}', 'color', this.value)"
                                        onclick="event.stopPropagation()" />
+                                <button class="delete-btn" title="Delete group and all its tasks"
+                                        onclick="event.stopPropagation(); deleteGroup('${groupName}')">Delete Group</button>
                             </div>
                             <span class="group-stats">${groupTasks.length} task${groupTasks.length !== 1 ? 's' : ''}</span>
                         </div>

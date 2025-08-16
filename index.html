@@ -457,7 +457,7 @@
             grid-template-columns: 250px 1fr;
             align-items: center;
             margin-bottom: 5px;
-            background: linear-gradient(135deg, #f0f4ff, #e8f0fe);
+            background: linear-gradient(135deg, #f0f4ff, #5a94f8);
             border-radius: 8px;
             cursor: move;
             transition: all 0.3s ease;
@@ -1645,7 +1645,7 @@
             document.body.appendChild(chartClone);
             
             html2canvas(chartClone, { 
-                scale: 3,
+                scale: 2,
                 useCORS: true,
                 allowTaint: true,
                 backgroundColor: '#ffffff',
@@ -1654,9 +1654,23 @@
                 scrollX: 0,
                 scrollY: 0
             }).then(canvas => {
+                // Resize to fit PowerPoint-friendly width while preserving aspect ratio
+                const MAX_W = 1920;
+                let outCanvas = canvas;
+                if (canvas.width > MAX_W) {
+                    const ratio = MAX_W / canvas.width;
+                    const oc = document.createElement('canvas');
+                    oc.width = Math.round(canvas.width * ratio);
+                    oc.height = Math.round(canvas.height * ratio);
+                    const ctx = oc.getContext('2d');
+                    ctx.imageSmoothingEnabled = true;
+                    ctx.imageSmoothingQuality = 'high';
+                    ctx.drawImage(canvas, 0, 0, oc.width, oc.height);
+                    outCanvas = oc;
+                }
                 const link = document.createElement('a');
                 link.download = `gantt_chart_${new Date().toISOString().split('T')[0]}.png`;
-                link.href = canvas.toDataURL('image/png');
+                link.href = outCanvas.toDataURL('image/png');
                 link.click();
                 
                 // Remove the clone
@@ -2915,10 +2929,24 @@
                         useCORS: true,
                         logging: false
                     }).then(canvas => {
+                        // Resize to fit PowerPoint-friendly width while preserving aspect ratio
+                        const MAX_W = 1920;
+                        let outCanvas = canvas;
+                        if (canvas.width > MAX_W) {
+                            const ratio = MAX_W / canvas.width;
+                            const oc = document.createElement('canvas');
+                            oc.width = Math.round(canvas.width * ratio);
+                            oc.height = Math.round(canvas.height * ratio);
+                            const ctx = oc.getContext('2d');
+                            ctx.imageSmoothingEnabled = true;
+                            ctx.imageSmoothingQuality = 'high';
+                            ctx.drawImage(canvas, 0, 0, oc.width, oc.height);
+                            outCanvas = oc;
+                        }
                         const link = document.createElement('a');
                         const ts = new Date().toISOString().replace(/[:.]/g, '-');
                         link.download = `gantt-chart-${ts}.png`;
-                        link.href = canvas.toDataURL('image/png');
+                        link.href = outCanvas.toDataURL('image/png');
                         link.click();
                         showNotification('PNG exported', 'success');
                     }).catch(err => {
@@ -2962,10 +2990,24 @@
                         useCORS: true,
                         logging: false
                     }).then(canvas => {
+                        // Resize to fit PowerPoint-friendly width while preserving aspect ratio
+                        const MAX_W = 1920;
+                        let outCanvas = canvas;
+                        if (canvas.width > MAX_W) {
+                            const ratio = MAX_W / canvas.width;
+                            const oc = document.createElement('canvas');
+                            oc.width = Math.round(canvas.width * ratio);
+                            oc.height = Math.round(canvas.height * ratio);
+                            const ctx = oc.getContext('2d');
+                            ctx.imageSmoothingEnabled = true;
+                            ctx.imageSmoothingQuality = 'high';
+                            ctx.drawImage(canvas, 0, 0, oc.width, oc.height);
+                            outCanvas = oc;
+                        }
                         const link = document.createElement('a');
                         const ts = new Date().toISOString().replace(/[:.]/g, '-');
                         link.download = `gantt-chart-collapsed-${ts}.png`;
-                        link.href = canvas.toDataURL('image/png');
+                        link.href = outCanvas.toDataURL('image/png');
                         link.click();
                         showNotification('Collapsed PNG exported', 'success');
                     }).catch(err => {

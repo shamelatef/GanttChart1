@@ -498,6 +498,117 @@
             transform: rotate(-90deg);
         }
 
+        /* Kebab menu styles */
+        .kebab-menu {
+            position: relative;
+            display: inline-block;
+            margin-left: auto;
+            padding: 0 8px;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .kebab-icon {
+            font-size: 1.2em;
+            color: #64748b;
+            padding: 4px;
+            border-radius: 4px;
+            transition: background-color 0.2s;
+        }
+
+        .kebab-icon:hover {
+            background-color: rgba(0, 0, 0, 0.05);
+        }
+
+        .kebab-dropdown {
+            position: absolute;
+            right: 0;
+            top: 100%;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            min-width: 160px;
+            z-index: 1000;
+            display: none;
+            overflow: hidden;
+            animation: fadeIn 0.15s ease-out;
+        }
+
+        .kebab-dropdown.show {
+            display: block;
+        }
+
+        .kebab-item {
+            padding: 8px 16px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: #334155;
+            white-space: nowrap;
+            transition: background-color 0.2s;
+        }
+
+        .kebab-item:hover {
+            background-color: #f1f5f9;
+        }
+
+        .kebab-item.danger {
+            color: #dc2626;
+        }
+
+        .kebab-item.danger:hover {
+            background-color: #fee2e2;
+        }
+
+        .kebab-item-icon {
+            width: 20px;
+            text-align: center;
+        }
+
+        /* Adjust chart group header to accommodate kebab menu */
+        .chart-group-header {
+            display: flex;
+            align-items: center;
+            position: relative;
+        }
+
+        .chart-group-label {
+            flex: 1;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        /* Adjust task label for kebab menu */
+        .task-label {
+            display: flex;
+            align-items: center;
+            flex: 1;
+            min-width: 0;
+        }
+
+        .task-label-text {
+            flex: 1;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-4px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Hide old inline actions */
+        .inline-actions {
+            display: none !important;
+        }
+
+        /* Hide kebab menus in exported PNGs */
+        .export-mode .kebab-menu {
+            display: none !important;
+        }
+
         .chart-group-timeline {
             position: relative;
             height: 35px;
@@ -1026,6 +1137,56 @@
             if (!modal || modal.style.display === 'none') return;
             if (e.key === 'Escape') { e.preventDefault(); closeEditModal(); }
             if (e.key === 'Enter') { e.preventDefault(); confirmEditModal(); }
+        });
+
+        // Kebab menu handling
+        function toggleKebabMenu(button) {
+            // Close all other open dropdowns
+            document.querySelectorAll('.kebab-dropdown').forEach(dropdown => {
+                if (dropdown !== button.nextElementSibling) {
+                    dropdown.classList.remove('show');
+                }
+            });
+            
+            // Toggle the clicked dropdown
+            const dropdown = button.nextElementSibling;
+            if (dropdown) {
+                const isOpen = dropdown.classList.contains('show');
+                dropdown.classList.toggle('show', !isOpen);
+                
+                // Close dropdown when clicking outside
+                if (!isOpen) {
+                    const closeHandler = (e) => {
+                        if (!dropdown.contains(e.target) && e.target !== button) {
+                            dropdown.classList.remove('show');
+                            document.removeEventListener('click', closeHandler);
+                        }
+                    };
+                    // Use setTimeout to avoid immediate close on click
+                    setTimeout(() => document.addEventListener('click', closeHandler), 0);
+                }
+            }
+        }
+        
+        // Close dropdowns when clicking outside
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('.kebab-menu')) {
+                document.querySelectorAll('.kebab-dropdown').forEach(dropdown => {
+                    dropdown.classList.remove('show');
+                });
+            }
+        });
+
+        // Close the specific kebab dropdown when mouse leaves the menu area
+        document.addEventListener('mouseout', (e) => {
+            const menu = e.target.closest('.kebab-menu');
+            if (!menu) return;
+            const toEl = e.relatedTarget;
+            // If the mouse moved to an element outside this menu, close it
+            if (!toEl || !menu.contains(toEl)) {
+                const dd = menu.querySelector('.kebab-dropdown');
+                if (dd) dd.classList.remove('show');
+            }
         });
 
         function renderProjectTabs() {
@@ -2160,18 +2321,39 @@
                     createTaskRow(task, months)
                 ).join('') : '';
 
+                const safeGroupName = groupName.replace(/'/g, "\\'");
+                const groupColor = groups[groupName]?.color || '#667eea';
+                
                 return `
-                    <div class="chart-group" draggable="true" data-group="${groupName}">
-                        <div class="chart-group-header" onclick="toggleGroup('${groupName}')">
-                            <div class="chart-group-label" style="position: relative; width: 100%; display:flex; align-items:center; gap:8px;">
+                    <div class="chart-group" draggable="true" data-group="${safeGroupName}">
+                        <div class="chart-group-header">
+                            <div class="chart-group-label" onclick="toggleGroup('${safeGroupName}')">
                                 <span class="chart-group-toggle ${isExpanded ? '' : 'collapsed'}">▼</span>
                                 <span>${groupName} (${groupTasks.length})</span>
-                                <div class="inline-actions">
-                                    <button class="action-btn" title="Edit name" onclick="event.stopPropagation(); openGroupEditModal('${groupName.replace(/'/g, "\\'")}')">Edit</button>
-                                    <label class="action-color" title="Change color" onclick="event.stopPropagation();">
-                                        <input type="color" value="${groups[groupName]?.color || '#667eea'}" onchange="updateGroupField('${groupName}','color', this.value)" />
-                                    </label>
-                                    <button class="action-btn action-danger" title="Delete group" onclick="event.stopPropagation(); deleteGroup('${groupName}')">Delete</button>
+                            </div>
+                            
+                            <!-- Kebab menu for group actions -->
+                            <div class="kebab-menu" onclick="event.stopPropagation()">
+                                <div class="kebab-icon" onclick="event.stopPropagation(); toggleKebabMenu(this)">⋮</div>
+                                <div class="kebab-dropdown">
+                                    <div class="kebab-item" onclick="openGroupEditModal('${safeGroupName}')">
+                                        <span class="kebab-item-icon">✏️</span>
+                                        <span>Rename</span>
+                                    </div>
+                                    <div class="kebab-item" onclick="
+                                        const colorInput = document.createElement('input');
+                                        colorInput.type = 'color';
+                                        colorInput.value = '${groupColor}';
+                                        colorInput.onchange = (e) => updateGroupField('${safeGroupName}', 'color', e.target.value);
+                                        colorInput.click();
+                                    ">
+                                        <span class="kebab-item-icon">🎨</span>
+                                        <span>Change Color</span>
+                                    </div>
+                                    <div class="kebab-item danger" onclick="deleteGroup('${safeGroupName}')">
+                                        <span class="kebab-item-icon">🗑️</span>
+                                        <span>Delete Group</span>
+                                    </div>
                                 </div>
                             </div>
                             ${!isExpanded ? `<div class=\"chart-group-timeline\">${groupBarHTML}</div>` : ``}
@@ -2277,13 +2459,31 @@
             return `
                 <div class="chart-row" draggable="true" data-task-id="${task.id}">
                     <div class="task-label" style="border-left-color: ${task.color}" onclick="event.stopPropagation()">
-                        <span>${task.name}</span>
-                        <div class="inline-actions">
-                            <button class="action-btn" title="Edit task" onclick="event.stopPropagation(); openTaskEditModal(${task.id})">Edit</button>
-                            <label class="action-color" title="Change color" onclick="event.stopPropagation();">
-                                <input type="color" value="${task.color}" onchange="updateTaskField(${task.id}, 'color', this.value)" />
-                            </label>
-                            <button class="action-btn action-danger" title="Delete task" onclick="event.stopPropagation(); deleteTask(${task.id})">Delete</button>
+                        <span class="task-label-text">${task.name}</span>
+                        
+                        <!-- Kebab menu for task actions -->
+                        <div class="kebab-menu" onclick="event.stopPropagation()">
+                            <div class="kebab-icon" onclick="event.stopPropagation(); toggleKebabMenu(this)">⋮</div>
+                            <div class="kebab-dropdown">
+                                <div class="kebab-item" onclick="openTaskEditModal(${task.id})">
+                                    <span class="kebab-item-icon">✏️</span>
+                                    <span>Rename</span>
+                                </div>
+                                <div class="kebab-item" onclick="
+                                    const colorInput = document.createElement('input');
+                                    colorInput.type = 'color';
+                                    colorInput.value = '${task.color}';
+                                    colorInput.onchange = (e) => updateTaskField(${task.id}, 'color', e.target.value);
+                                    colorInput.click();
+                                ">
+                                    <span class="kebab-item-icon">🎨</span>
+                                    <span>Change Color</span>
+                                </div>
+                                <div class="kebab-item danger" onclick="deleteTask(${task.id})">
+                                    <span class="kebab-item-icon">🗑️</span>
+                                    <span>Delete Task</span>
+                                </div>
+                            </div>
                         </div>
                     </div>
                     <div class="timeline-track">

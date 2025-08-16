@@ -874,6 +874,20 @@
             </div>
         </div>
 
+        <!-- Edit Modal (for task/group edits) -->
+        <div class="modal-backdrop" id="editModal" style="display: none;">
+            <div class="modal" role="dialog" aria-modal="true" aria-labelledby="editTitle">
+                <h3 id="editTitle">Edit</h3>
+                <div class="modal-body">
+                    <input type="text" id="editInput" placeholder="Enter value" />
+                </div>
+                <div class="actions">
+                    <button class="btn btn-secondary btn-secondary-ghost" onclick="closeEditModal()">Cancel</button>
+                    <button class="btn btn-primary" onclick="confirmEditModal()">Save</button>
+                </div>
+            </div>
+        </div>
+
         <div class="controls">
             <div class="form-group">
                 <label for="taskName">Task Name</label>
@@ -960,6 +974,59 @@
             groupStates = JSON.parse(JSON.stringify(p.groupStates || {}));
             groupOrder = JSON.parse(JSON.stringify(p.groupOrder || Object.keys(p.groups || {})));
         }
+
+        // Generic edit modal logic for task/group name edits
+        let editContext = null; // { type: 'task'|'group', taskId?: number, groupName?: string }
+        function openTaskEditModal(taskId) {
+            const t = (tasks || []).find(x => x.id === taskId);
+            if (!t) return;
+            editContext = { type: 'task', taskId };
+            const title = document.getElementById('editTitle');
+            const input = document.getElementById('editInput');
+            const modal = document.getElementById('editModal');
+            if (!title || !input || !modal) return;
+            title.textContent = 'Edit Task Name';
+            input.value = t.name || '';
+            modal.style.display = 'flex';
+            input.focus();
+            input.select();
+        }
+        function openGroupEditModal(groupName) {
+            if (!groupName) return;
+            editContext = { type: 'group', groupName };
+            const title = document.getElementById('editTitle');
+            const input = document.getElementById('editInput');
+            const modal = document.getElementById('editModal');
+            if (!title || !input || !modal) return;
+            title.textContent = 'Edit Group Name';
+            input.value = groupName || '';
+            modal.style.display = 'flex';
+            input.focus();
+            input.select();
+        }
+        function closeEditModal() {
+            const modal = document.getElementById('editModal');
+            if (modal) modal.style.display = 'none';
+            editContext = null;
+        }
+        function confirmEditModal() {
+            const input = document.getElementById('editInput');
+            const val = input ? input.value : '';
+            if (!editContext) { closeEditModal(); return; }
+            if (editContext.type === 'task' && typeof updateTaskField === 'function') {
+                updateTaskField(editContext.taskId, 'name', val);
+            } else if (editContext.type === 'group' && typeof updateGroupField === 'function') {
+                updateGroupField(editContext.groupName, 'name', val);
+            }
+            closeEditModal();
+        }
+        // Close modal on Escape, save on Enter
+        document.addEventListener('keydown', function(e){
+            const modal = document.getElementById('editModal');
+            if (!modal || modal.style.display === 'none') return;
+            if (e.key === 'Escape') { e.preventDefault(); closeEditModal(); }
+            if (e.key === 'Enter') { e.preventDefault(); confirmEditModal(); }
+        });
 
         function renderProjectTabs() {
             const el = document.getElementById('projectTabs');
@@ -2100,7 +2167,7 @@
                                 <span class="chart-group-toggle ${isExpanded ? '' : 'collapsed'}">▼</span>
                                 <span>${groupName} (${groupTasks.length})</span>
                                 <div class="inline-actions">
-                                    <button class="action-btn" title="Edit name" onclick="event.stopPropagation(); (function(){ const nv = prompt('Group name:', '${groupName}'); if(nv!==null){ updateGroupField('${groupName}','name', nv); } })()">Edit</button>
+                                    <button class="action-btn" title="Edit name" onclick="event.stopPropagation(); openGroupEditModal('${groupName.replace(/'/g, "\\'")}')">Edit</button>
                                     <label class="action-color" title="Change color" onclick="event.stopPropagation();">
                                         <input type="color" value="${groups[groupName]?.color || '#667eea'}" onchange="updateGroupField('${groupName}','color', this.value)" />
                                     </label>
@@ -2212,7 +2279,7 @@
                     <div class="task-label" style="border-left-color: ${task.color}" onclick="event.stopPropagation()">
                         <span>${task.name}</span>
                         <div class="inline-actions">
-                            <button class="action-btn" title="Edit task" onclick="event.stopPropagation(); (function(){ const nv = prompt('Task name:', '${task.name.replace(/"/g, '&quot;')}'); if(nv!==null){ updateTaskField(${task.id}, 'name', nv); } })()">Edit</button>
+                            <button class="action-btn" title="Edit task" onclick="event.stopPropagation(); openTaskEditModal(${task.id})">Edit</button>
                             <label class="action-color" title="Change color" onclick="event.stopPropagation();">
                                 <input type="color" value="${task.color}" onchange="updateTaskField(${task.id}, 'color', this.value)" />
                             </label>

@@ -976,6 +976,46 @@
             color: #3b4cca;
             border: 1px solid #cfd8ff;
         }
+        /* Wrapper for inline ghost suggestion inside input */
+        .group-input-wrapper {
+            position: relative;
+        }
+        .group-input-wrapper input[type="text"] {
+            position: relative;
+            background-color: transparent; /* ensure ghost can be seen under same background */
+        }
+        .group-ghost {
+            position: absolute;
+            inset: 0;
+            padding: 12px; /* match .form-group input padding */
+            box-sizing: border-box;
+            display: flex;
+            align-items: center; /* vertically align with input text */
+            height: 100%;
+            color: rgba(0,0,0,0.35);
+            font-weight: inherit; /* inherit to keep same metrics */
+            font-family: inherit;
+            font-size: inherit;
+            line-height: inherit;
+            letter-spacing: inherit;
+            white-space: pre;
+            pointer-events: none;
+            user-select: none;
+            overflow: hidden;
+        }
+        .group-ghost .ghost-prefix { visibility: hidden; }
+        .group-ghost .ghost-suffix { color: rgba(0,0,0,0.35); }
+        /* Inline input hint for autocomplete */
+        .input-hint {
+            margin-top: 6px;
+            font-size: 0.8rem;
+            color: #667eea;
+            opacity: 0.9;
+            display: none;
+        }
+        .input-hint.show {
+            display: block;
+        }
     </style>
 </head>
 <body>
@@ -1061,8 +1101,12 @@
             </div>
             <div class="form-group">
                 <label for="groupName">Group</label>
-                <input type="text" id="groupName" placeholder="Enter group name" list="groupSuggestions">
+                <div class="group-input-wrapper">
+                    <div id="groupGhost" class="group-ghost" aria-hidden="true"></div>
+                    <input type="text" id="groupName" placeholder="Enter group name" list="groupSuggestions">
+                </div>
                 <datalist id="groupSuggestions"></datalist>
+                <div id="groupHint" class="input-hint" aria-live="polite">Press Tab to autocomplete</div>
             </div>
             <div class="form-group">
                 <label for="startDate">Start Date</label>
@@ -1109,6 +1153,8 @@
         let draggedType = null;
         let hasUnsavedChanges = false;
         let lastSavedData = null;
+        // Track previously typed group names (not only the ones created via tasks)
+        let previousGroupInputs = new Set();
 
         // Multi-project management
         let projects = [];
@@ -1877,6 +1923,7 @@
             updateChart();
             updateGroupSuggestions();
             setupDragAndDrop();
+            setupGroupAutocomplete();
             
             // Autosave will now occur only on refresh/leave via beforeunload
             
@@ -2050,6 +2097,11 @@
 
             tasks.push(task);
 
+            // Remember this group name as a previous input
+            if (groupName && groupName !== 'Ungrouped') {
+                previousGroupInputs.add(groupName);
+            }
+
             if (!groups[groupName]) {
                 groups[groupName] = {
                     name: groupName,
@@ -2219,15 +2271,116 @@
             tn.value = '';
             tn.classList.remove('input-error');
             document.getElementById('groupName').value = '';
+            setGroupGhost('');
             setTodayDate();
             document.getElementById('taskColor').value = '#667eea';
         }
 
-        function updateGroupSuggestions() {
+        function getAllGroupNames() {
+            const names = new Set(Object.keys(groups));
+            previousGroupInputs.forEach(n => { if (n) names.add(n); });
+            return Array.from(names).sort((a,b) => a.localeCompare(b));
+        }
+
+        function updateGroupSuggestions(filter = '') {
             const datalist = document.getElementById('groupSuggestions');
-            datalist.innerHTML = Object.keys(groups).map(groupName => 
+            const all = getAllGroupNames();
+            const f = String(filter || '').toLowerCase();
+            const list = f ? all.filter(n => n.toLowerCase().startsWith(f)) : all;
+            datalist.innerHTML = list.map(groupName => 
                 `<option value="${groupName}"></option>`
             ).join('');
+            // Toggle hint if there is at least one completion candidate and user typed something
+            const hint = document.getElementById('groupHint');
+            if (hint) {
+                hint.classList.toggle('show', !!f && list.length > 0);
+            }
+            // Update ghost suggestion to first match
+            setGroupGhost(filter);
+        }
+
+        function setupGroupAutocomplete() {
+            const input = document.getElementById('groupName');
+            const hint = document.getElementById('groupHint');
+            if (!input) return;
+            syncGroupGhostMetrics();
+
+            // Populate from existing known names initially
+            updateGroupSuggestions('');
+
+            input.addEventListener('input', () => {
+                updateGroupSuggestions(input.value);
+            });
+            // Update ghost on caret moves as well
+            input.addEventListener('keyup', () => setGroupGhost(input.value));
+            input.addEventListener('click', () => setGroupGhost(input.value));
+            window.addEventListener('resize', syncGroupGhostMetrics);
+
+            // On blur, remember typed value as a previous input
+            input.addEventListener('blur', () => {
+                const val = (input.value || '').trim();
+                if (val) {
+                    previousGroupInputs.add(val);
+                    updateGroupSuggestions('');
+                }
+                if (hint) hint.classList.remove('show');
+                // Clear ghost on blur
+                setGroupGhost('');
+            });
+
+            // Tab to autocomplete to first matching suggestion
+            input.addEventListener('keydown', (e) => {
+                if (e.key === 'Tab') {
+                    const val = input.value.trim();
+                    if (!val) return; // let Tab behave normally
+                    const all = getAllGroupNames();
+                    const match = all.find(n => n.toLowerCase().startsWith(val.toLowerCase()));
+                    if (match && match !== val) {
+                        e.preventDefault();
+                        input.value = match;
+                        // Keep the caret at the end after completion
+                        requestAnimationFrame(() => {
+                            input.setSelectionRange(match.length, match.length);
+                        });
+                        // Hide hint after autocompletion
+                        if (hint) hint.classList.remove('show');
+                        updateGroupSuggestions('');
+                        // Clear ghost after applying completion
+                        setGroupGhost('');
+                    }
+                }
+            });
+        }
+
+        function setGroupGhost(prefix) {
+            const ghost = document.getElementById('groupGhost');
+            const input = document.getElementById('groupName');
+            if (!ghost || !input) return;
+            const val = String(typeof prefix === 'string' ? prefix : input.value || '');
+            if (!val) { ghost.textContent = ''; return; }
+            const all = getAllGroupNames();
+            const match = all.find(n => n.toLowerCase().startsWith(val.toLowerCase()));
+            // Only render if caret at end (avoid misalignment for mid-text edits)
+            const atEnd = input.selectionStart === input.selectionEnd && input.selectionEnd === val.length;
+            if (!match || !atEnd) { ghost.textContent = ''; return; }
+            const suffix = match.slice(val.length);
+            if (!suffix) { ghost.textContent = ''; return; }
+            ghost.innerHTML = `<span class="ghost-prefix">${val}</span><span class="ghost-suffix">${suffix}</span>`;
+        }
+
+        function syncGroupGhostMetrics() {
+            const input = document.getElementById('groupName');
+            const ghost = document.getElementById('groupGhost');
+            if (!input || !ghost) return;
+            const cs = window.getComputedStyle(input);
+            // Mirror key metrics & spacing
+            ghost.style.fontFamily = cs.fontFamily;
+            ghost.style.fontSize = cs.fontSize;
+            ghost.style.fontWeight = cs.fontWeight;
+            ghost.style.lineHeight = cs.lineHeight;
+            ghost.style.letterSpacing = cs.letterSpacing;
+            ghost.style.textTransform = cs.textTransform;
+            ghost.style.padding = cs.padding;
         }
 
         function updateGroupsList() {

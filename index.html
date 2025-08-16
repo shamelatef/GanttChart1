@@ -92,6 +92,17 @@
             box-shadow: 0 0 0 3px rgba(229, 57, 53, 0.15) !important;
         }
 
+        /* Gentle attention pulse around an input */
+        @keyframes attentionPulse {
+            0% { box-shadow: 0 0 0 0 rgba(102, 126, 234, 0.35); }
+            70% { box-shadow: 0 0 0 10px rgba(102, 126, 234, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(102, 126, 234, 0); }
+        }
+        .attention-pulse {
+            animation: attentionPulse 1.2s ease-out 0s 2;
+            border-color: #667eea !important;
+        }
+
         .form-group input:focus, .form-group select:focus {
             outline: none;
             border-color: #667eea;
@@ -1974,6 +1985,14 @@
             }
         })();
 
+        // Helper to draw attention to the task name field with a brief pulse
+        function triggerTaskNameAttention(duration = 1500) {
+            const el = document.getElementById('taskName');
+            if (!el) return;
+            el.classList.add('attention-pulse');
+            setTimeout(() => el.classList.remove('attention-pulse'), duration);
+        }
+
         function setTodayDate() {
             const today = new Date().toISOString().split('T')[0];
             const startDateInput = document.getElementById('startDate');
@@ -2832,8 +2851,14 @@
             }
         });
 
-        // Auto-focus on task name input
-        document.getElementById('taskName').focus();
+        // Auto-focus on task name input and draw subtle attention
+        (function(){
+            const tn = document.getElementById('taskName');
+            if (tn) {
+                tn.focus();
+                triggerTaskNameAttention(1800);
+            }
+        })();
     // Project duplication
     function duplicateProject(index) {
         if (!projects[index]) return;

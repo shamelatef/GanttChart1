@@ -1794,12 +1794,32 @@
             updateGroupSuggestions();
             setupDragAndDrop();
             
-            // Start auto-save timer
-            setInterval(autoSave, 30000); // Auto-save every 30 seconds
+            // Autosave will now occur only on refresh/leave via beforeunload
             
             // Initialize save indicator
             updateSaveIndicator();
         };
+
+        // Silent, synchronous autosave (no notifications/UI updates)
+        function quickAutoSave() {
+            try {
+                if (!Array.isArray(projects) || projects.length === 0) return;
+                // ensure latest in-memory changes are reflected in active project
+                syncActiveFromGlobals();
+                const autoSaveData = {
+                    projects: projects,
+                    activeProjectIndex: activeProjectIndex,
+                    autoSaveTimestamp: new Date().toISOString(),
+                    version: '3.0'
+                };
+                localStorage.setItem('gantt_autosave', JSON.stringify(autoSaveData));
+            } catch (e) {
+                // ignore errors on unload
+            }
+        }
+
+        // Save only when the page is actually navigating away
+        window.addEventListener('pagehide', quickAutoSave, { capture: true });
 
         // Clear red highlight as user types a task name
         (function(){

@@ -1005,6 +1005,27 @@
             </div>
         </div>
 
+        <!-- Edit Dates Modal -->
+        <div class="modal-backdrop" id="dateModal" style="display:none">
+            <div class="modal" role="dialog" aria-modal="true" aria-labelledby="dateTitle">
+                <h3 id="dateTitle">Edit Task Dates</h3>
+                <div class="modal-body" style="display:grid; gap:12px;">
+                    <label style="display:grid; gap:6px;">
+                        <span>Start Date</span>
+                        <input type="date" id="dateStartInput" />
+                    </label>
+                    <label style="display:grid; gap:6px;">
+                        <span>End Date</span>
+                        <input type="date" id="dateEndInput" />
+                    </label>
+                </div>
+                <div class="actions">
+                    <button class="btn btn-secondary btn-secondary-ghost" onclick="closeDateModal()">Cancel</button>
+                    <button class="btn btn-primary" onclick="confirmDateModal()">Save</button>
+                </div>
+            </div>
+        </div>
+
         <div class="controls">
             <div class="form-group">
                 <label for="taskName">Task Name</label>
@@ -1182,6 +1203,41 @@
                 });
             }
         });
+
+        // Utility: open a hidden native date picker and return the selected value
+        function openHiddenDatePicker(initialValue, onSelect) {
+            const input = document.createElement('input');
+            input.type = 'date';
+            if (initialValue) input.value = initialValue;
+            // Keep in viewport (some browsers ignore clicks on offscreen elements)
+            input.style.position = 'fixed';
+            input.style.left = '10px';
+            input.style.top = '10px';
+            input.style.width = '1px';
+            input.style.height = '1px';
+            input.style.opacity = '0';
+            input.style.zIndex = '2147483647';
+            document.body.appendChild(input);
+
+            const cleanup = () => { try { document.body.removeChild(input); } catch (_) {} };
+            const handleChange = (e) => { try { if (onSelect) onSelect(e.target.value); } finally { cleanup(); } };
+            input.addEventListener('change', handleChange, { once: true });
+            input.addEventListener('blur', cleanup, { once: true });
+            // Ensure focus, then try showPicker if available; otherwise click
+            input.focus({ preventScroll: true });
+            setTimeout(() => {
+                try {
+                    if (typeof input.showPicker === 'function') {
+                        input.showPicker();
+                    } else {
+                        input.click();
+                    }
+                } catch (_) {
+                    // Fallback to click if showPicker fails
+                    try { input.click(); } catch (_) {}
+                }
+            }, 0);
+        }
 
         // Close the specific kebab dropdown when mouse leaves the menu area
         document.addEventListener('mouseout', (e) => {
@@ -1820,6 +1876,43 @@
 
         // Save only when the page is actually navigating away
         window.addEventListener('pagehide', quickAutoSave, { capture: true });
+
+        // Task Dates Modal Logic
+        let currentDateModalTaskId = null;
+        function openTaskDateModal(taskId) {
+            currentDateModalTaskId = taskId;
+            const t = tasks.find(x => x.id === taskId);
+            if (!t) return;
+            const m = document.getElementById('dateModal');
+            document.getElementById('dateStartInput').value = t.startDate;
+            document.getElementById('dateEndInput').value = t.endDate;
+            m.style.display = 'flex';
+        }
+        function closeDateModal() {
+            const m = document.getElementById('dateModal');
+            if (m) m.style.display = 'none';
+            currentDateModalTaskId = null;
+        }
+        function confirmDateModal() {
+            if (currentDateModalTaskId == null) { closeDateModal(); return; }
+            const start = document.getElementById('dateStartInput').value;
+            const end = document.getElementById('dateEndInput').value;
+            if (!start || !end) { showNotification('Please select both dates', 'error'); return; }
+            if (new Date(start) > new Date(end)) { showNotification('Start date cannot be after end date', 'error'); return; }
+            updateTaskDates(currentDateModalTaskId, start, end);
+            closeDateModal();
+        }
+        function updateTaskDates(taskId, start, end) {
+            const t = tasks.find(x => x.id === taskId);
+            if (!t) return;
+            t.startDate = start;
+            t.endDate = end;
+            markAsChanged();
+            updateGroupsList();
+            updateChart();
+            updateGroupSuggestions();
+            showNotification('Task dates updated', 'success');
+        }
 
         // Clear red highlight as user types a task name
         (function(){
@@ -2494,6 +2587,10 @@
                                 <div class="kebab-item" onclick="openTaskEditModal(${task.id})">
                                     <span class="kebab-item-icon">✏️</span>
                                     <span>Rename</span>
+                                </div>
+                                <div class="kebab-item" onclick="openTaskDateModal(${task.id}); this.closest('.kebab-dropdown')?.classList.remove('show');">
+                                    <span class="kebab-item-icon">📅</span>
+                                    <span>Edit Dates…</span>
                                 </div>
                                 <div class="kebab-item" onclick="
                                     const colorInput = document.createElement('input');

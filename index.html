@@ -457,7 +457,7 @@
             grid-template-columns: 250px 1fr;
             align-items: center;
             margin-bottom: 5px;
-            background: linear-gradient(135deg, #f0f4ff, #5a94f8);
+            background: linear-gradient(135deg, #f0f4ff,rgb(139, 176, 240));
             border-radius: 8px;
             cursor: move;
             transition: all 0.3s ease;
@@ -2681,8 +2681,8 @@
                 
                 return `
                     <div class="chart-group" draggable="true" data-group="${safeGroupName}">
-                        <div class="chart-group-header">
-                            <div class="chart-group-label" onclick="toggleGroup('${safeGroupName}')">
+                        <div class="chart-group-header" onclick="if(!event.target.closest('.kebab-menu')) toggleGroup('${safeGroupName}')">
+                            <div class="chart-group-label">
                                 <span class="chart-group-toggle ${isExpanded ? '' : 'collapsed'}">▼</span>
                                 <span>${groupName} (${groupTasks.length})</span>
                             </div>
@@ -3083,3 +3083,4 @@
     </script>
 </body>
 </html>
+
